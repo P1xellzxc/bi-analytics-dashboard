@@ -113,14 +113,16 @@ export function Dashboard() {
         </div>
       </header>
 
-      <FilterBar
-        filters={filters}
-        setFilters={setFilters}
-        data={data}
-        seasons={seasons}
-        entryCount={filtered.length}
-        totalCount={data.results.length}
-      />
+      <div className="md:sticky md:top-0 md:z-30 md:-mx-3 md:px-3 xl:-mx-6 xl:px-6 2xl:-mx-8 2xl:px-8 md:py-2 md:-my-2 md:bg-base">
+        <FilterBar
+          filters={filters}
+          setFilters={setFilters}
+          data={data}
+          seasons={seasons}
+          entryCount={filtered.length}
+          totalCount={data.results.length}
+        />
+      </div>
 
       <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 ${entityMode ? "xl:grid-cols-7" : "xl:grid-cols-6"}`}>
         {entityMode ? (
