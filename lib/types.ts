@@ -62,12 +62,25 @@ export const RACE = { year: 0, round: 1, circuit: 2, name: 3 } as const;
 // statusClass values
 export const STATUS_LABELS = ["Finished", "Mechanical DNF", "Incident DNF", "Disqualified", "Other"];
 
+export interface BattleSeries {
+  i: number; // driver / constructor index
+  p: number[]; // cumulative points after each round
+}
+
+export interface SeasonBattle {
+  y: number;
+  races: string[]; // round names
+  d: BattleSeries[]; // top drivers
+  c: BattleSeries[]; // top constructors
+}
+
 export interface Dataset {
   drivers: Driver[];
   constructors: Constructor[];
   circuits: Circuit[];
   races: RaceRow[];
   results: ResultRow[];
+  battles: SeasonBattle[];
 }
 
 export interface Filters {

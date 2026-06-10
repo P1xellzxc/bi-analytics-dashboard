@@ -267,6 +267,78 @@ export function standings(rows: ResultRow[], data: Dataset, by: "driver" | "cons
   }));
 }
 
+/** Win share by constructor by season (top N + Other), for a 100% stacked area. */
+export function eraDominance(
+  rows: ResultRow[],
+  data: Dataset,
+  topN = 6,
+): { seasons: Record<string, number | string>[]; names: string[] } {
+  const winsByCon = new Map<number, number>();
+  const bySeason = new Map<number, Map<number, number>>(); // year -> conIdx -> wins
+  for (const r of rows) {
+    if (r[R.pos] !== 1 || r[R.sprint] === 1) continue;
+    const y = data.races[r[R.race]][RACE.year];
+    const c = r[R.constructor];
+    winsByCon.set(c, (winsByCon.get(c) ?? 0) + 1);
+    let m = bySeason.get(y);
+    if (!m) {
+      m = new Map();
+      bySeason.set(y, m);
+    }
+    m.set(c, (m.get(c) ?? 0) + 1);
+  }
+  const top = [...winsByCon.entries()].sort((a, b) => b[1] - a[1]).slice(0, topN).map(([i]) => i);
+  const names = top.map((i) => data.constructors[i].name);
+  const seasons = [...bySeason.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([year, m]) => {
+      const total = [...m.values()].reduce((s, v) => s + v, 0);
+      const row: Record<string, number | string> = { season: year };
+      let covered = 0;
+      top.forEach((i, k) => {
+        const share = ((m.get(i) ?? 0) / total) * 100;
+        row[names[k]] = share;
+        covered += share;
+      });
+      row["Other"] = Math.max(0, 100 - covered);
+      return row;
+    });
+  return { seasons, names: [...names, "Other"] };
+}
+
+export interface Comeback {
+  driver: string;
+  constructor: string;
+  race: string;
+  year: number;
+  grid: number;
+  finish: number;
+  gained: number;
+}
+
+/** Biggest single-race climbs from grid to classified finish. */
+export function comebacks(rows: ResultRow[], data: Dataset, limit = 15): Comeback[] {
+  const out: Comeback[] = [];
+  for (const r of rows) {
+    const pos = r[R.pos];
+    const grid = r[R.grid];
+    if (pos === null || grid < 1 || r[R.sprint] === 1) continue;
+    const gained = grid - pos;
+    if (gained < 5) continue;
+    const race = data.races[r[R.race]];
+    out.push({
+      driver: data.drivers[r[R.driver]].name,
+      constructor: data.constructors[r[R.constructor]].name,
+      race: race[RACE.name],
+      year: race[RACE.year],
+      grid,
+      finish: pos,
+      gained,
+    });
+  }
+  return out.sort((a, b) => b.gained - a.gained || a.finish - b.finish || b.year - a.year).slice(0, limit);
+}
+
 /** Win rate + entries per circuit country — where races are won/lost. */
 export function finishDistribution(rows: ResultRow[]): { label: string; entries: number }[] {
   const edges = [

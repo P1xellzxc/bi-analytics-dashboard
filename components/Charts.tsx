@@ -152,6 +152,43 @@ export function PitStopChart({ data }: { data: SeasonPoint[] }) {
   );
 }
 
+export function EraDominanceChart({ data }: { data: { seasons: Record<string, number | string>[]; names: string[] } }) {
+  const c = useChartColors();
+  const axisProps = useAxisProps();
+  return (
+    <ChartCard
+      title="Era Dominance"
+      sub="Share of Grand Prix wins by constructor, each season"
+      info="Who owned each era, in one picture. A single color swallowing the chart is a dominance period — Ferrari 2000–2004, Mercedes 2014–2020, Red Bull 2022–23. Many thin bands mean an open, competitive era. Constructors outside the filtered top six are grouped as Other."
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data.seasons} margin={{ top: 5, right: 5, bottom: 0, left: -20 }} stackOffset="expand">
+          <CartesianGrid stroke={c.grid} vertical={false} />
+          <XAxis dataKey="season" {...axisProps} minTickGap={30} />
+          <YAxis {...axisProps} tickFormatter={(v) => `${Math.round(Number(v) * 100)}%`} />
+          <Tooltip
+            contentStyle={c.tooltip}
+            formatter={(v, name) => [`${Number(v).toFixed(1)}%`, name]}
+            labelFormatter={(l) => `Season ${l}`}
+          />
+          <Legend formatter={(v) => <span style={{ color: c.axis, fontSize: 11 }}>{v}</span>} />
+          {data.names.map((name, k) => (
+            <Area
+              key={name}
+              type="monotone"
+              dataKey={name}
+              stackId="wins"
+              stroke="none"
+              fill={c.series[k % c.series.length]}
+              fillOpacity={0.85}
+            />
+          ))}
+        </AreaChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+
 export function FinishDistributionChart({ data }: { data: { label: string; entries: number }[] }) {
   const c = useChartColors();
   const axisProps = useAxisProps();

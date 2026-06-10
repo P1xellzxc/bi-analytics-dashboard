@@ -27,7 +27,7 @@ The metrics F1 performance analysts actually track, in two modes:
 | **Avg positions gained** | Race craft: grid slot vs classified finish |
 | **DNF rate** (mechanical vs incident) | Reliability vs crash-proneness |
 
-Charts: points by season (career arcs), reliability & attrition trend, grid slot → average finish, finishing-position distribution, pit stop performance by season, and a sortable championship table with a Drivers/Constructors toggle (entries, wins, podiums, poles, points, pts/race, avg finish, DNF %).
+Charts & panels: points by season (career arcs), reliability & attrition trend, grid slot → average finish, finishing-position distribution, **era dominance** (win share by constructor per season, stacked), pit stop performance by season, a **Championship Battle** explorer (cumulative points by round for any season's top drivers or constructors, with champion / final margin / lead-changes stats — powered by the standings files), a **Greatest Comeback Drives** table (biggest grid-to-finish climbs under the current filters), and a sortable championship table with a Drivers/Constructors toggle (entries, wins, podiums, poles, points, pts/race, avg finish, DNF %).
 
 ## Filters
 

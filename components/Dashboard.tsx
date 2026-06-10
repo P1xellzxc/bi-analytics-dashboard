@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   applyFilters,
+  comebacks,
   computeKpis,
+  eraDominance,
   finishDistribution,
   gridToFinish,
   seasonTrends,
@@ -13,6 +15,7 @@ import { Dataset, Filters, RACE } from "@/lib/types";
 import { FilterBar } from "./FilterBar";
 import { KpiCard, fmtNum, fmtPct } from "./KpiCard";
 import {
+  EraDominanceChart,
   FinishDistributionChart,
   GridToFinishChart,
   PitStopChart,
@@ -20,6 +23,8 @@ import {
   ReliabilityChart,
 } from "./Charts";
 import { StandingsTable } from "./StandingsTable";
+import { ChampionshipBattle } from "./ChampionshipBattle";
+import { ComebackTable } from "./ComebackTable";
 import { ThemeToggle } from "./theme";
 
 export function Dashboard() {
@@ -64,6 +69,8 @@ export function Dashboard() {
   const distribution = useMemo(() => finishDistribution(filtered), [filtered]);
   const driverStandings = useMemo(() => (data ? standings(filtered, data, "driver") : []), [filtered, data]);
   const constructorStandings = useMemo(() => (data ? standings(filtered, data, "constructor") : []), [filtered, data]);
+  const dominance = useMemo(() => (data ? eraDominance(filtered, data) : { seasons: [], names: [] }), [filtered, data]);
+  const topComebacks = useMemo(() => (data ? comebacks(filtered, data) : []), [filtered, data]);
 
   if (error) {
     return <div className="flex-1 flex items-center justify-center text-sm text-neg">Failed to load data: {error}</div>;
@@ -207,21 +214,25 @@ export function Dashboard() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <PointsBySeasonChart data={trends} entityName={entityName} />
         <ReliabilityChart data={trends} />
         <GridToFinishChart data={gridStats} />
         <FinishDistributionChart data={distribution} />
+        <EraDominanceChart data={dominance} />
+        <PitStopChart data={trends} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-2">
-          <PitStopChart data={trends} />
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 sm:gap-4">
         <div className="lg:col-span-3">
-          <StandingsTable drivers={driverStandings} constructors={constructorStandings} />
+          <ChampionshipBattle data={data} />
+        </div>
+        <div className="lg:col-span-2">
+          <ComebackTable rows={topComebacks} />
         </div>
       </div>
+
+      <StandingsTable drivers={driverStandings} constructors={constructorStandings} />
 
       <footer className="text-xs text-ink-muted pt-2 pb-4">
         Data:{" "}

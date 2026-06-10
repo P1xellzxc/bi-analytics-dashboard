@@ -39,6 +39,8 @@ const CHART_PALETTES = {
     primary: "#00c389", // Pantone 3395 C
     secondary: "#418fde", // Pantone 279 C
     tertiary: "#ffb81c", // Pantone 1235 C
+    // multi-line series (championship battles, stacked areas)
+    series: ["#00c389", "#418fde", "#ffb81c", "#9063cd", "#e56a54", "#9bd3dd", "#75787b"],
     grid: "#333f48",
     axis: "#97999b",
     reference: "#75787b",
@@ -55,6 +57,7 @@ const CHART_PALETTES = {
     primary: "#007a53", // Pantone 341 C
     secondary: "#0057b8", // Pantone 2935 C
     tertiary: "#ad841f", // Pantone 1255 C
+    series: ["#007a53", "#0057b8", "#ad841f", "#87189d", "#d14124", "#00606b", "#9a9da0"],
     grid: "#dcdcda",
     axis: "#63666a",
     reference: "#9a9da0",

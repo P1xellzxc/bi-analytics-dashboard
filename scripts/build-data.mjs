@@ -185,7 +185,60 @@ function addResults(file, isSprint) {
 addResults("results.csv", false);
 addResults("sprint_results.csv", true);
 
-const out = { drivers, constructors, circuits, races, results: rows };
+// ---- Championship battle series ------------------------------------------
+// Cumulative points after each round for the season's top contenders, from
+// the standings files. Compact: top 6 drivers / top 5 constructors per year.
+function battleSeries(file, idCol, idxMap, topN) {
+  const standings = new Map(); // raceId -> Map(entityIdx -> cumulative points)
+  for (const s of parseCsv(file)) {
+    const idx = idxMap.get(s[idCol]);
+    if (idx === undefined) continue;
+    let m = standings.get(s.raceId);
+    if (!m) {
+      m = new Map();
+      standings.set(s.raceId, m);
+    }
+    m.set(idx, num(s.points) ?? 0);
+  }
+  const byYear = new Map();
+  for (const r of racesRaw) {
+    const arr = byYear.get(r.year) ?? [];
+    arr.push(r);
+    byYear.set(r.year, arr);
+  }
+  const out = new Map(); // year -> { races: [...names], series: [{i, p: [...]}] }
+  for (const [year, yearRaces] of byYear) {
+    yearRaces.sort((a, b) => num(a.round) - num(b.round));
+    const rounds = yearRaces.filter((r) => standings.has(r.raceId));
+    if (rounds.length === 0) continue;
+    const final = standings.get(rounds[rounds.length - 1].raceId);
+    const top = [...final.entries()].sort((a, b) => b[1] - a[1]).slice(0, topN).map(([i]) => i);
+    const series = top.map((i) => {
+      let last = 0;
+      const p = rounds.map((r) => {
+        const v = standings.get(r.raceId).get(i);
+        if (v !== undefined) last = v;
+        return last;
+      });
+      return { i, p };
+    });
+    out.set(Number(year), { races: rounds.map((r) => r.name.replace(" Grand Prix", "")), series });
+  }
+  return out;
+}
+
+const dBattles = battleSeries("driver_standings.csv", "driverId", driverIdx, 6);
+const cBattles = battleSeries("constructor_standings.csv", "constructorId", constructorIdx, 5);
+const battles = [...dBattles.keys()]
+  .sort((a, b) => a - b)
+  .map((y) => ({
+    y,
+    races: dBattles.get(y).races,
+    d: dBattles.get(y).series,
+    c: cBattles.get(y)?.series ?? [],
+  }));
+
+const out = { drivers, constructors, circuits, races, results: rows, battles };
 mkdirSync(join(root, "public/data"), { recursive: true });
 writeFileSync(join(root, "public/data/f1.json"), JSON.stringify(out));
 const mb = (JSON.stringify(out).length / 1e6).toFixed(2);
