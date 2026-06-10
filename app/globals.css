@@ -1,8 +1,32 @@
 @import "tailwindcss";
 
+/*
+  Cinematic 60-30-10 palette (Pantone), WCAG AA verified on dark surfaces:
+  60% dominant  — base    Pantone Black 6 C   #101820 (page background)
+  30% secondary — surface Pantone 433 C       #1D252D (cards, panels, table)
+  10% accent    — accent  Pantone 3395 C      #00C389 (KPIs, primary series, focus)
+  Support:        edge    Pantone 432 C       #333F48 (borders, grid lines)
+                  ink     Pantone Cool Gray 1 C #D9D9D6 (primary text, 11.0:1 on surface)
+                  muted   Pantone Cool Gray 7 C #97999B (secondary text, 5.4:1 on surface)
+                  neg     Pantone 178 C       #FF585D (negative values, 5.0:1)
+                  info    Pantone 279 C       #418FDE (secondary chart series, 4.6:1)
+                  warn    Pantone 1235 C      #FFB81C (tertiary chart series, 9.0:1)
+*/
+@theme {
+  --color-base: #101820;
+  --color-surface: #1d252d;
+  --color-edge: #333f48;
+  --color-ink: #d9d9d6;
+  --color-ink-muted: #97999b;
+  --color-accent: #00c389;
+  --color-neg: #ff585d;
+  --color-info: #418fde;
+  --color-warn: #ffb81c;
+}
+
 :root {
-  --background: #09090b;
-  --foreground: #e4e4e7;
+  --background: #101820;
+  --foreground: #d9d9d6;
 }
 
 @theme inline {
@@ -19,5 +43,5 @@ body {
 }
 
 ::selection {
-  background: #10b98144;
+  background: #00c38944;
 }

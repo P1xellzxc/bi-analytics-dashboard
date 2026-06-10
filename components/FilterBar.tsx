@@ -14,14 +14,14 @@ interface FilterBarProps {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1 min-w-0">
-      <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">{label}</span>
+      <span className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">{label}</span>
       {children}
     </label>
   );
 }
 
 const selectCls =
-  "bg-zinc-900 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-sm text-zinc-200 outline-none focus:border-emerald-500 hover:border-zinc-600 transition-colors cursor-pointer";
+  "bg-surface border border-edge rounded-lg px-2.5 py-1.5 text-sm text-ink outline-none focus:border-accent hover:border-ink-muted transition-colors cursor-pointer";
 
 export function FilterBar({ filters, setFilters, teams, seasons, gameCount, totalCount }: FilterBarProps) {
   const set = (patch: Partial<Filters>) => setFilters({ ...filters, ...patch });
@@ -51,7 +51,7 @@ export function FilterBar({ filters, setFilters, teams, seasons, gameCount, tota
   const isDirty = JSON.stringify(filters) !== JSON.stringify(defaults);
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+    <div className="rounded-xl border border-edge/50 bg-surface p-4">
       <div className="flex flex-wrap gap-3 items-end">
         <Field label="Season from">
           <select
@@ -181,12 +181,12 @@ export function FilterBar({ filters, setFilters, teams, seasons, gameCount, tota
         {isDirty && (
           <button
             onClick={() => setFilters(defaults)}
-            className="px-3 py-1.5 text-sm rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-sm rounded-lg border border-edge text-ink-muted hover:text-ink hover:border-ink-muted transition-colors cursor-pointer"
           >
             Reset
           </button>
         )}
-        <span className="ml-auto text-xs text-zinc-500 pb-1.5 tabular-nums">
+        <span className="ml-auto text-xs text-ink-muted pb-1.5 tabular-nums">
           {gameCount.toLocaleString()} of {totalCount.toLocaleString()} games
         </span>
       </div>

@@ -24,6 +24,24 @@ Season range · game type (regular / playoffs) · week (incl. playoff rounds) ·
 
 All filtering and aggregation happen client-side over a compact ~580 KB JSON payload, so every interaction is instant.
 
+## Design system — cinematic 60-30-10, Pantone
+
+The UI follows the 60-30-10 color rule with Pantone colors. Every text/background pairing is verified against WCAG AA (≥ 4.5:1 for normal text):
+
+| Role | Pantone | Hex | Share | Contrast on surface |
+| --- | --- | --- | --- | --- |
+| Dominant (page background) | Black 6 C | `#101820` | 60% | — |
+| Secondary (cards, panels, table) | 433 C | `#1D252D` | 30% | — |
+| Accent (KPIs, primary series, focus) | 3395 C | `#00C389` | 10% | 6.8:1 ✓ |
+| Primary text | Cool Gray 1 C | `#D9D9D6` | — | 11.0:1 ✓ |
+| Secondary text | Cool Gray 7 C | `#97999B` | — | 5.4:1 ✓ |
+| Negative values | 178 C | `#FF585D` | — | 5.0:1 ✓ |
+| Chart series 2 | 279 C | `#418FDE` | — | 4.6:1 ✓ |
+| Chart series 3 | 1235 C | `#FFB81C` | — | 9.0:1 ✓ |
+| Borders / grid lines (decorative) | 432 C | `#333F48` | — | n/a |
+
+Pantone Warm Red C was considered for negatives but rejected (4.3:1, below AA); 178 C passes. Tokens are defined once in `app/globals.css` (`@theme`) and used as Tailwind classes (`bg-surface`, `text-ink`, `text-accent`, …).
+
 ## Development
 
 ```bash
