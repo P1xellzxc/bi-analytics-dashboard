@@ -1,5 +1,5 @@
-// Converts the raw Kaggle CSVs in /data into a compact JSON payload consumed
-// by the dashboard at runtime (public/data/games.json).
+// Converts the raw F1 CSVs in /data (Ergast schema via Kaggle) into a compact
+// JSON payload consumed by the dashboard at runtime (public/data/f1.json).
 // Run with: node scripts/build-data.mjs  (wired into `npm run build` via prebuild)
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -7,115 +7,151 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
-  const header = lines[0].split(",");
+// Quote-aware CSV line splitter (fields may be quoted; \N means null).
+function splitLine(line) {
+  const out = [];
+  let cur = "";
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"') inQ = false;
+      else cur += ch;
+    } else if (ch === '"') inQ = true;
+    else if (ch === ",") {
+      out.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out.map((v) => (v === "\\N" ? "" : v.trim()));
+}
+
+function parseCsv(file) {
+  const lines = readFileSync(join(root, "data", file), "utf8")
+    .split(/\r?\n/)
+    .filter((l) => l.trim() !== "");
+  const header = splitLine(lines[0]);
   return lines.slice(1).map((line) => {
-    // No quoted fields exist in these CSVs, simple split is safe.
-    const cells = line.split(",");
+    const cells = splitLine(line);
     const row = {};
-    header.forEach((h, i) => (row[h] = (cells[i] ?? "").trim()));
+    header.forEach((h, i) => (row[h] = cells[i] ?? ""));
     return row;
   });
 }
 
-// Canonical modern franchise names per team_id (the teams CSV lists every
-// historical name; the dashboard groups all of them under one franchise).
-const CURRENT_NAMES = {
-  ARI: "Arizona Cardinals",
-  ATL: "Atlanta Falcons",
-  BAL: "Baltimore Ravens",
-  BUF: "Buffalo Bills",
-  CAR: "Carolina Panthers",
-  CHI: "Chicago Bears",
-  CIN: "Cincinnati Bengals",
-  CLE: "Cleveland Browns",
-  DAL: "Dallas Cowboys",
-  DEN: "Denver Broncos",
-  DET: "Detroit Lions",
-  GB: "Green Bay Packers",
-  HOU: "Houston Texans",
-  IND: "Indianapolis Colts",
-  JAX: "Jacksonville Jaguars",
-  KC: "Kansas City Chiefs",
-  LAC: "Los Angeles Chargers",
-  LAR: "Los Angeles Rams",
-  LVR: "Las Vegas Raiders",
-  MIA: "Miami Dolphins",
-  MIN: "Minnesota Vikings",
-  NE: "New England Patriots",
-  NO: "New Orleans Saints",
-  NYG: "New York Giants",
-  NYJ: "New York Jets",
-  PHI: "Philadelphia Eagles",
-  PIT: "Pittsburgh Steelers",
-  SEA: "Seattle Seahawks",
-  SF: "San Francisco 49ers",
-  TB: "Tampa Bay Buccaneers",
-  TEN: "Tennessee Titans",
-  WAS: "Washington Commanders",
-};
-
-const teamsRaw = parseCsv(readFileSync(join(root, "data/nfl_teams.csv"), "utf8"));
-const nameToId = {};
-const franchises = {}; // id -> { name, division }
-for (const t of teamsRaw) {
-  nameToId[t.team_name] = t.team_id;
-  const f = (franchises[t.team_id] ??= { name: CURRENT_NAMES[t.team_id] ?? t.team_name, division: "" });
-  if (t.team_division) f.division = t.team_division; // prefer a row with a current division
-}
-
-const ids = Object.keys(franchises).sort();
-const teams = ids.map((id) => ({
-  id,
-  name: franchises[id].name,
-  division: franchises[id].division,
-  conference: franchises[id].division.startsWith("AFC") ? "AFC" : "NFC",
-}));
-const idToIdx = Object.fromEntries(ids.map((id, i) => [id, i]));
-
-const PLAYOFF_WEEKS = { Wildcard: 19, Division: 20, Conference: 21, Superbowl: 22 };
-
-function weatherCategory(detail, temp) {
-  const d = detail.toLowerCase();
-  if (d.includes("indoor") || d.includes("closed")) return 1; // indoor / dome
-  if (d.includes("snow")) return 3;
-  if (d.includes("rain")) return 2;
-  if (d.includes("fog")) return 4;
-  if (temp !== null) return 0; // outdoor, no precipitation recorded
-  return 5; // unknown
-}
-
 const num = (s) => (s === "" || s === undefined ? null : Number(s));
-// Source data is imperial; the dashboard is metric.
-const fToC = (f) => (f === null ? null : Math.round(((f - 32) * 5) / 9));
-const mphToKmh = (mph) => (mph === null ? null : Math.round(mph * 1.609344));
 
-const gamesRaw = parseCsv(readFileSync(join(root, "data/spreadspoke_scores.csv"), "utf8"));
-const games = [];
-for (const g of gamesRaw) {
-  const home = idToIdx[nameToId[g.team_home]];
-  const away = idToIdx[nameToId[g.team_away]];
-  if (home === undefined || away === undefined || g.score_home === "") continue;
-  const temp = num(g.weather_temperature);
-  games.push([
-    Number(g.schedule_season), // 0 season
-    PLAYOFF_WEEKS[g.schedule_week] ?? Number(g.schedule_week), // 1 week (19-22 = playoff rounds)
-    home, // 2 home team index
-    away, // 3 away team index
-    Number(g.score_home), // 4
-    Number(g.score_away), // 5
-    g.team_favorite_id === "PICK" ? -2 : idToIdx[g.team_favorite_id] ?? -1, // 6 favorite (-2 pick'em, -1 none)
-    num(g.spread_favorite), // 7 spread (negative = favorite lays points)
-    num(g.over_under_line), // 8 over/under line
-    g.stadium_neutral === "TRUE" ? 1 : 0, // 9 neutral site
-    fToC(temp), // 10 temperature °C
-    mphToKmh(num(g.weather_wind_mph)), // 11 wind km/h
-    weatherCategory(g.weather_detail ?? "", temp), // 12 weather category
-  ]);
+// ---- Lookups -------------------------------------------------------------
+const driversRaw = parseCsv("drivers.csv");
+const constructorsRaw = parseCsv("constructors.csv");
+const circuitsRaw = parseCsv("circuits.csv");
+const racesRaw = parseCsv("races.csv").sort((a, b) => num(a.year) - num(b.year) || num(a.round) - num(b.round));
+const statusRaw = parseCsv("status.csv");
+
+const driverIdx = new Map(driversRaw.map((d, i) => [d.driverId, i]));
+const constructorIdx = new Map(constructorsRaw.map((c, i) => [c.constructorId, i]));
+const circuitIdx = new Map(circuitsRaw.map((c, i) => [c.circuitId, i]));
+const raceIdx = new Map(racesRaw.map((r, i) => [r.raceId, i]));
+
+const drivers = driversRaw.map((d) => ({
+  name: `${d.forename} ${d.surname}`,
+  code: d.code || d.surname.slice(0, 3).toUpperCase(),
+  nationality: d.nationality,
+}));
+const constructors = constructorsRaw.map((c) => ({ name: c.name, nationality: c.nationality }));
+const circuits = circuitsRaw.map((c) => ({ name: c.name, country: c.country, location: c.location }));
+const races = racesRaw.map((r) => [num(r.year), num(r.round), circuitIdx.get(r.circuitId), r.name.replace(" Grand Prix", " GP")]);
+
+// ---- Status classification ----------------------------------------------
+// 0 finished/classified, 1 mechanical DNF, 2 incident (crash/collision/spin),
+// 3 disqualified/not allowed to start, 4 other (withdrew, injury, ...)
+const INCIDENT = new Set(["Accident", "Collision", "Spun off", "Collision damage", "Fatal accident", "Damage", "Debris"]);
+const ADMIN = new Set(["Disqualified", "Excluded", "Did not qualify", "Did not prequalify", "107% Rule", "Underweight", "Safety belt"]);
+const OTHER = new Set([
+  "Withdrew", "Injured", "Injury", "Driver unwell", "Illness", "Physical", "Eye injury",
+  "Safety concerns", "Not restarted", "Safety", "Driver Seat", "Stalled", "Out of fuel", "Did not start",
+]);
+const statusClass = new Map(
+  statusRaw.map((s) => {
+    const t = s.status;
+    let cls;
+    if (t === "Finished" || t.startsWith("+") || t === "Not classified") cls = 0;
+    else if (INCIDENT.has(t)) cls = 2;
+    else if (ADMIN.has(t)) cls = 3;
+    else if (OTHER.has(t)) cls = 4;
+    else cls = 1; // mechanical/technical retirement
+    return [s.statusId, cls];
+  }),
+);
+
+// ---- Aggregations folded into result rows --------------------------------
+// Laps led per (raceId, driverId) from 589k lap_times rows.
+const lapsLed = new Map();
+for (const l of parseCsv("lap_times.csv")) {
+  if (l.position === "1") {
+    const k = `${l.raceId}:${l.driverId}`;
+    lapsLed.set(k, (lapsLed.get(k) ?? 0) + 1);
+  }
 }
 
-const out = { teams, games };
+// Pit stop count + total pit-lane time (entry to exit) per (raceId, driverId), 2011+.
+// Stops longer than 60s are red-flag waits or repairs, not racing stops — excluded
+// from the time average (still counted as stops).
+const pits = new Map();
+for (const p of parseCsv("pit_stops.csv")) {
+  const k = `${p.raceId}:${p.driverId}`;
+  const cur = pits.get(k) ?? { n: 0, ms: 0, msN: 0 };
+  cur.n++;
+  const ms = num(p.milliseconds) ?? 0;
+  if (ms > 0 && ms <= 60000) {
+    cur.ms += ms;
+    cur.msN++;
+  }
+  pits.set(k, cur);
+}
+
+// Qualifying classification position per (raceId, driverId).
+const quali = new Map();
+for (const q of parseCsv("qualifying.csv")) {
+  quali.set(`${q.raceId}:${q.driverId}`, num(q.position));
+}
+
+// ---- Result rows ----------------------------------------------------------
+// [raceIdx, driverIdx, constructorIdx, grid, posOrder, classifiedPos|null, points,
+//  statusClass, qualiPos|null, lapsLed, pitCount|null, pitAvgMs|null, fastestLap01, sprint01]
+const rows = [];
+function addResults(file, isSprint) {
+  for (const r of parseCsv(file)) {
+    const ri = raceIdx.get(r.raceId);
+    const di = driverIdx.get(r.driverId);
+    const ci = constructorIdx.get(r.constructorId);
+    if (ri === undefined || di === undefined || ci === undefined) continue;
+    const k = `${r.raceId}:${r.driverId}`;
+    const pit = !isSprint ? pits.get(k) : undefined;
+    rows.push([
+      ri,
+      di,
+      ci,
+      num(r.grid) ?? 0,
+      num(r.positionOrder),
+      num(r.position),
+      num(r.points) ?? 0,
+      statusClass.get(r.statusId) ?? 4,
+      !isSprint ? (quali.get(k) ?? null) : null,
+      !isSprint ? (lapsLed.get(k) ?? 0) : 0,
+      pit ? pit.n : null,
+      pit && pit.msN > 0 ? Math.round(pit.ms / pit.msN) : null,
+      !isSprint && r.rank === "1" ? 1 : 0,
+      isSprint ? 1 : 0,
+    ]);
+  }
+}
+addResults("results.csv", false);
+addResults("sprint_results.csv", true);
+
+const out = { drivers, constructors, circuits, races, results: rows };
 mkdirSync(join(root, "public/data"), { recursive: true });
-writeFileSync(join(root, "public/data/games.json"), JSON.stringify(out));
-console.log(`Wrote ${games.length} games, ${teams.length} franchises -> public/data/games.json`);
+writeFileSync(join(root, "public/data/f1.json"), JSON.stringify(out));
+const mb = (JSON.stringify(out).length / 1e6).toFixed(2);
+console.log(`Wrote ${rows.length} results, ${races.length} races, ${drivers.length} drivers -> public/data/f1.json (${mb} MB)`);

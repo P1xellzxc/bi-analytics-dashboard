@@ -23,6 +23,8 @@ SOFTWARE.
 ---
 
 Note on data: this license covers the source code of this repository only.
-The CSV files under /data originate from the Kaggle dataset "NFL scores and
-betting data" (https://www.kaggle.com/datasets/tobycrabtree/nfl-scores-and-betting-data)
-and remain subject to that dataset's own license and terms.
+The CSV files under /data originate from the Kaggle dataset "Formula 1 World
+Championship (1950 - 2024)"
+(https://www.kaggle.com/datasets/rohanrao/formula-1-world-championship-1950-2020),
+sourced from the Ergast Developer API, and remain subject to that dataset's
+own license and terms.

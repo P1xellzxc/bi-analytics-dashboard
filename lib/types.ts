@@ -1,70 +1,82 @@
-export interface Team {
-  id: string;
+export interface Driver {
   name: string;
-  division: string;
-  conference: "AFC" | "NFC";
+  code: string;
+  nationality: string;
 }
+
+export interface Constructor {
+  name: string;
+  nationality: string;
+}
+
+export interface Circuit {
+  name: string;
+  country: string;
+  location: string;
+}
+
+// [year, round, circuitIdx, name]
+export type RaceRow = [number, number, number, string];
 
 // Compact tuple emitted by scripts/build-data.mjs
-// [season, week, homeIdx, awayIdx, scoreHome, scoreAway, favIdx, spread, ouLine, neutral, temp, wind, weatherCat]
-export type GameRow = [
-  number, // 0 season
-  number, // 1 week (1-18 regular, 19 WC, 20 Div, 21 Conf, 22 SB)
-  number, // 2 home team index
-  number, // 3 away team index
-  number, // 4 home score
-  number, // 5 away score
-  number, // 6 favorite team index (-2 pick'em, -1 unknown)
-  number | null, // 7 spread (negative, from favorite's perspective)
-  number | null, // 8 over/under line
-  number, // 9 neutral site (0/1)
-  number | null, // 10 temperature °C
-  number | null, // 11 wind km/h
-  number, // 12 weather category
+// [raceIdx, driverIdx, constructorIdx, grid, posOrder, classifiedPos|null, points,
+//  statusClass, qualiPos|null, lapsLed, pitCount|null, pitAvgMs|null, fastestLap01, sprint01]
+export type ResultRow = [
+  number, // 0 race index
+  number, // 1 driver index
+  number, // 2 constructor index
+  number, // 3 grid (0 = pit lane / unknown)
+  number, // 4 finishing order (incl. DNFs, always set)
+  number | null, // 5 classified position (null if not classified)
+  number, // 6 points scored
+  number, // 7 status class (see STATUS_LABELS)
+  number | null, // 8 qualifying position (null pre-1994)
+  number, // 9 laps led
+  number | null, // 10 pit stop count (2011+ only)
+  number | null, // 11 avg pit stop stationary ms (2011+ only)
+  number, // 12 set fastest lap (0/1)
+  number, // 13 sprint race (0/1)
 ];
 
-export const G = {
-  season: 0,
-  week: 1,
-  home: 2,
-  away: 3,
-  scoreHome: 4,
-  scoreAway: 5,
-  fav: 6,
-  spread: 7,
-  ou: 8,
-  neutral: 9,
-  temp: 10,
-  wind: 11,
-  weather: 12,
+export const R = {
+  race: 0,
+  driver: 1,
+  constructor: 2,
+  grid: 3,
+  order: 4,
+  pos: 5,
+  points: 6,
+  status: 7,
+  quali: 8,
+  lapsLed: 9,
+  pitCount: 10,
+  pitAvgMs: 11,
+  fastestLap: 12,
+  sprint: 13,
 } as const;
 
+export const RACE = { year: 0, round: 1, circuit: 2, name: 3 } as const;
+
+// statusClass values
+export const STATUS_LABELS = ["Finished", "Mechanical DNF", "Incident DNF", "Disqualified", "Other"];
+
 export interface Dataset {
-  teams: Team[];
-  games: GameRow[];
-}
-
-export const WEATHER_LABELS = ["Outdoor (clear)", "Indoor / Dome", "Rain", "Snow", "Fog", "Unknown"];
-
-export const PLAYOFF_WEEK_LABELS: Record<number, string> = {
-  19: "Wildcard",
-  20: "Division",
-  21: "Conference",
-  22: "Super Bowl",
-};
-
-export function weekLabel(week: number): string {
-  return PLAYOFF_WEEK_LABELS[week] ?? `Week ${week}`;
+  drivers: Driver[];
+  constructors: Constructor[];
+  circuits: Circuit[];
+  races: RaceRow[];
+  results: ResultRow[];
 }
 
 export interface Filters {
   seasonFrom: number;
   seasonTo: number;
-  gameType: "all" | "regular" | "playoffs";
-  week: number | null;
-  conference: "all" | "AFC" | "NFC";
-  division: string;
-  team: number | null; // team index
-  venue: "all" | "stadium" | "neutral";
-  weather: number | null; // weather category
+  session: "all" | "race" | "sprint";
+  driver: number | null;
+  team: number | null; // constructor index
+  circuit: number | null;
+  circuitCountry: string;
+  driverNationality: string;
+  status: "all" | "finished" | "mechanical" | "incident" | "dsq";
+  gridBucket: "all" | "pole" | "front" | "top10" | "back" | "pit";
 }

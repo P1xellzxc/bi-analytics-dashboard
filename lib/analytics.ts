@@ -1,286 +1,280 @@
-import { Dataset, Filters, G, GameRow, Team } from "./types";
+import { Dataset, Filters, R, RACE, ResultRow } from "./types";
 
 const pct = (n: number, d: number) => (d > 0 ? (n / d) * 100 : null);
 const avg = (sum: number, d: number) => (d > 0 ? sum / d : null);
 
-export function applyFilters(data: Dataset, f: Filters): GameRow[] {
-  const teamMatchesScope = (idx: number) => {
-    const t = data.teams[idx];
-    if (f.conference !== "all" && t.conference !== f.conference) return false;
-    if (f.division && t.division !== f.division) return false;
-    return true;
-  };
-  return data.games.filter((g) => {
-    if (g[G.season] < f.seasonFrom || g[G.season] > f.seasonTo) return false;
-    const isPlayoff = g[G.week] >= 19;
-    if (f.gameType === "regular" && isPlayoff) return false;
-    if (f.gameType === "playoffs" && !isPlayoff) return false;
-    if (f.week !== null && g[G.week] !== f.week) return false;
-    if (f.team !== null) {
-      if (g[G.home] !== f.team && g[G.away] !== f.team) return false;
-    } else if (f.conference !== "all" || f.division) {
-      if (!teamMatchesScope(g[G.home]) && !teamMatchesScope(g[G.away])) return false;
+export function applyFilters(data: Dataset, f: Filters): ResultRow[] {
+  return data.results.filter((r) => {
+    const race = data.races[r[R.race]];
+    const year = race[RACE.year];
+    if (year < f.seasonFrom || year > f.seasonTo) return false;
+    if (f.session === "race" && r[R.sprint] === 1) return false;
+    if (f.session === "sprint" && r[R.sprint] === 0) return false;
+    if (f.driver !== null && r[R.driver] !== f.driver) return false;
+    if (f.team !== null && r[R.constructor] !== f.team) return false;
+    if (f.circuit !== null && race[RACE.circuit] !== f.circuit) return false;
+    if (f.circuitCountry && data.circuits[race[RACE.circuit]].country !== f.circuitCountry) return false;
+    if (f.driverNationality && data.drivers[r[R.driver]].nationality !== f.driverNationality) return false;
+    if (f.status !== "all") {
+      const s = r[R.status];
+      if (f.status === "finished" && s !== 0) return false;
+      if (f.status === "mechanical" && s !== 1) return false;
+      if (f.status === "incident" && s !== 2) return false;
+      if (f.status === "dsq" && s !== 3) return false;
     }
-    if (f.venue === "stadium" && g[G.neutral] === 1) return false;
-    if (f.venue === "neutral" && g[G.neutral] === 0) return false;
-    if (f.weather !== null && g[G.weather] !== f.weather) return false;
+    if (f.gridBucket !== "all") {
+      const g = r[R.grid];
+      if (f.gridBucket === "pole" && g !== 1) return false;
+      if (f.gridBucket === "front" && (g < 1 || g > 2)) return false;
+      if (f.gridBucket === "top10" && (g < 1 || g > 10)) return false;
+      if (f.gridBucket === "back" && g <= 10) return false;
+      if (f.gridBucket === "pit" && g !== 0) return false;
+    }
     return true;
   });
 }
 
 export interface Kpis {
-  games: number;
-  avgTotalPoints: number | null;
-  avgMargin: number | null;
-  homeWinPct: number | null; // ties count as half, neutral-site games excluded
-  favoriteSuPct: number | null;
-  favoriteAtsPct: number | null;
-  overPct: number | null;
-  avgSpread: number | null;
-  avgOuLine: number | null;
-  // populated only when a single team is selected
-  teamWinPct: number | null;
-  teamRecord: string | null;
+  entries: number;
+  races: number;
+  wins: number;
+  winPct: number | null;
+  podiums: number;
+  podiumPct: number | null;
+  poles: number;
+  points: number;
+  pointsPerEntry: number | null;
+  avgFinish: number | null; // classified results only
+  avgGrid: number | null; // grid > 0 only
+  posGained: number | null; // grid - finish, classified with grid > 0
+  dnfPct: number | null; // mechanical + incident
+  mechPct: number | null;
+  incidentPct: number | null;
+  avgPitMs: number | null;
+  lapsLed: number;
+  fastestLaps: number;
+  poleWinConversion: number | null; // % of races won from pole (league view)
+  avgFinishersPerRace: number | null;
+  uniqueWinners: number;
 }
 
-/** ATS result from the favorite's perspective: 1 cover, 0 push, -1 fail; null if no line. */
-function favoriteAtsResult(g: GameRow): number | null {
-  const fav = g[G.fav];
-  const spread = g[G.spread];
-  if (spread === null || fav === -1) return null;
-  const margin =
-    fav === g[G.home] ? g[G.scoreHome] - g[G.scoreAway] : fav === g[G.away] ? g[G.scoreAway] - g[G.scoreHome] : null;
-  if (margin === null) return null; // pick'em or favorite not in this game
-  const cover = margin + spread; // spread is negative
-  return cover > 0 ? 1 : cover === 0 ? 0 : -1;
-}
+export function computeKpis(rows: ResultRow[]): Kpis {
+  let wins = 0;
+  let podiums = 0;
+  let poles = 0;
+  let points = 0;
+  let finSum = 0;
+  let finN = 0;
+  let gridSum = 0;
+  let gridN = 0;
+  let gainSum = 0;
+  let gainN = 0;
+  let mech = 0;
+  let incident = 0;
+  let pitMsSum = 0;
+  let pitN = 0;
+  let lapsLed = 0;
+  let fastestLaps = 0;
+  let poleWins = 0;
+  let finished = 0;
+  const raceIds = new Set<number>();
+  const winners = new Set<number>();
 
-export function computeKpis(games: GameRow[], teamIdx: number | null): Kpis {
-  let totalPts = 0;
-  let totalMargin = 0;
-  let homeDecided = 0;
-  let homeWins = 0; // ties weighted 0.5
-  let favDecided = 0;
-  let favWins = 0;
-  let atsDecided = 0;
-  let atsCovers = 0;
-  let ouDecided = 0;
-  let overs = 0;
-  let spreadSum = 0;
-  let spreadN = 0;
-  let ouSum = 0;
-  let ouN = 0;
-  let tW = 0,
-    tL = 0,
-    tT = 0;
-
-  for (const g of games) {
-    const hs = g[G.scoreHome];
-    const as = g[G.scoreAway];
-    totalPts += hs + as;
-    totalMargin += Math.abs(hs - as);
-
-    if (g[G.neutral] === 0) {
-      homeDecided++;
-      homeWins += hs > as ? 1 : hs === as ? 0.5 : 0;
+  for (const r of rows) {
+    raceIds.add(r[R.race]);
+    const pos = r[R.pos];
+    if (pos === 1) {
+      wins++;
+      winners.add(r[R.driver]);
+      if (r[R.grid] === 1) poleWins++;
     }
-
-    const fav = g[G.fav];
-    if (fav >= 0 && (fav === g[G.home] || fav === g[G.away]) && hs !== as) {
-      favDecided++;
-      const favScore = fav === g[G.home] ? hs : as;
-      const dogScore = fav === g[G.home] ? as : hs;
-      if (favScore > dogScore) favWins++;
+    if (pos !== null && pos <= 3) podiums++;
+    const q = r[R.quali];
+    if (q === 1 || (q === null && r[R.grid] === 1)) poles++;
+    points += r[R.points];
+    if (pos !== null) {
+      finSum += pos;
+      finN++;
     }
-
-    const ats = favoriteAtsResult(g);
-    if (ats !== null && ats !== 0) {
-      atsDecided++;
-      if (ats === 1) atsCovers++;
-    }
-
-    const ou = g[G.ou];
-    if (ou !== null) {
-      ouSum += ou;
-      ouN++;
-      const total = hs + as;
-      if (total !== ou) {
-        ouDecided++;
-        if (total > ou) overs++;
+    if (r[R.grid] > 0) {
+      gridSum += r[R.grid];
+      gridN++;
+      if (pos !== null) {
+        gainSum += r[R.grid] - pos;
+        gainN++;
       }
     }
-    if (g[G.spread] !== null) {
-      spreadSum += g[G.spread]!;
-      spreadN++;
+    if (r[R.status] === 0) finished++;
+    if (r[R.status] === 1) mech++;
+    if (r[R.status] === 2) incident++;
+    const pitAvg = r[R.pitAvgMs];
+    const pitCount = r[R.pitCount];
+    if (pitAvg !== null && pitCount !== null) {
+      pitMsSum += pitAvg * pitCount;
+      pitN += pitCount;
     }
-
-    if (teamIdx !== null && (g[G.home] === teamIdx || g[G.away] === teamIdx)) {
-      const mine = g[G.home] === teamIdx ? hs : as;
-      const theirs = g[G.home] === teamIdx ? as : hs;
-      if (mine > theirs) tW++;
-      else if (mine < theirs) tL++;
-      else tT++;
-    }
+    lapsLed += r[R.lapsLed];
+    fastestLaps += r[R.fastestLap];
   }
 
-  const n = games.length;
+  const n = rows.length;
   return {
-    games: n,
-    avgTotalPoints: avg(totalPts, n),
-    avgMargin: avg(totalMargin, n),
-    homeWinPct: pct(homeWins, homeDecided),
-    favoriteSuPct: pct(favWins, favDecided),
-    favoriteAtsPct: pct(atsCovers, atsDecided),
-    overPct: pct(overs, ouDecided),
-    avgSpread: avg(spreadSum, spreadN),
-    avgOuLine: avg(ouSum, ouN),
-    teamWinPct: teamIdx !== null ? pct(tW + tT * 0.5, tW + tL + tT) : null,
-    teamRecord: teamIdx !== null ? `${tW}-${tL}${tT ? `-${tT}` : ""}` : null,
+    entries: n,
+    races: raceIds.size,
+    wins,
+    winPct: pct(wins, raceIds.size),
+    podiums,
+    podiumPct: pct(podiums, n),
+    poles,
+    points,
+    pointsPerEntry: avg(points, n),
+    avgFinish: avg(finSum, finN),
+    avgGrid: avg(gridSum, gridN),
+    posGained: avg(gainSum, gainN),
+    dnfPct: pct(mech + incident, n),
+    mechPct: pct(mech, n),
+    incidentPct: pct(incident, n),
+    avgPitMs: avg(pitMsSum, pitN),
+    lapsLed,
+    fastestLaps,
+    poleWinConversion: pct(poleWins, wins),
+    avgFinishersPerRace: avg(finished, raceIds.size),
+    uniqueWinners: winners.size,
   };
 }
 
-export interface SeasonTrendPoint {
+export interface SeasonPoint {
   season: number;
-  avgPoints: number | null;
-  homeWinPct: number | null;
-  favAtsPct: number | null;
-  overPct: number | null;
-  games: number;
+  points: number;
+  wins: number;
+  mechPct: number | null;
+  incidentPct: number | null;
+  avgPitS: number | null;
+  entries: number;
 }
 
-export function seasonTrends(games: GameRow[]): SeasonTrendPoint[] {
-  const by = new Map<number, GameRow[]>();
-  for (const g of games) {
-    const arr = by.get(g[G.season]);
-    if (arr) arr.push(g);
-    else by.set(g[G.season], [g]);
+export function seasonTrends(rows: ResultRow[], data: Dataset): SeasonPoint[] {
+  const by = new Map<number, ResultRow[]>();
+  for (const r of rows) {
+    const y = data.races[r[R.race]][RACE.year];
+    const arr = by.get(y);
+    if (arr) arr.push(r);
+    else by.set(y, [r]);
   }
   return [...by.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([season, gs]) => {
-      const k = computeKpis(gs, null);
+    .map(([season, rs]) => {
+      const k = computeKpis(rs);
       return {
         season,
-        avgPoints: k.avgTotalPoints,
-        homeWinPct: k.homeWinPct,
-        favAtsPct: k.favoriteAtsPct,
-        overPct: k.overPct,
-        games: gs.length,
+        points: k.points,
+        wins: k.wins,
+        mechPct: k.mechPct,
+        incidentPct: k.incidentPct,
+        avgPitS: k.avgPitMs !== null ? k.avgPitMs / 1000 : null,
+        entries: rs.length,
       };
     });
 }
 
-export interface TeamStat {
-  team: Team;
-  games: number;
-  wins: number;
-  losses: number;
-  ties: number;
-  winPct: number;
-  pfPerGame: number;
-  paPerGame: number;
-  atsPct: number | null; // cover rate when this team is fav or dog
-  overPct: number | null;
-}
-
-export function teamStats(games: GameRow[], teams: Team[]): TeamStat[] {
-  const acc = teams.map(() => ({
-    games: 0,
-    wins: 0,
-    losses: 0,
-    ties: 0,
-    pf: 0,
-    pa: 0,
-    atsCovers: 0,
-    atsDecided: 0,
-    overs: 0,
-    ouDecided: 0,
-  }));
-
-  for (const g of games) {
-    const ats = favoriteAtsResult(g);
-    const ou = g[G.ou];
-    const total = g[G.scoreHome] + g[G.scoreAway];
-    for (const side of [G.home, G.away] as const) {
-      const idx = g[side];
-      const a = acc[idx];
-      const mine = side === G.home ? g[G.scoreHome] : g[G.scoreAway];
-      const theirs = side === G.home ? g[G.scoreAway] : g[G.scoreHome];
-      a.games++;
-      a.pf += mine;
-      a.pa += theirs;
-      if (mine > theirs) a.wins++;
-      else if (mine < theirs) a.losses++;
-      else a.ties++;
-      if (ats !== null && ats !== 0) {
-        a.atsDecided++;
-        const isFav = g[G.fav] === idx;
-        if ((isFav && ats === 1) || (!isFav && ats === -1)) a.atsCovers++;
-      }
-      if (ou !== null && total !== ou) {
-        a.ouDecided++;
-        if (total > ou) a.overs++;
-      }
+/** Average classified finish position and win rate by starting grid slot (1..20). */
+export function gridToFinish(rows: ResultRow[]): { grid: number; avgFinish: number | null; winPct: number | null; entries: number }[] {
+  const buckets = Array.from({ length: 20 }, () => ({ finSum: 0, finN: 0, wins: 0, n: 0 }));
+  for (const r of rows) {
+    const g = r[R.grid];
+    if (g < 1 || g > 20) continue;
+    const b = buckets[g - 1];
+    b.n++;
+    const pos = r[R.pos];
+    if (pos !== null) {
+      b.finSum += pos;
+      b.finN++;
+      if (pos === 1) b.wins++;
     }
   }
-
-  return teams
-    .map((team, i) => {
-      const a = acc[i];
-      return {
-        team,
-        games: a.games,
-        wins: a.wins,
-        losses: a.losses,
-        ties: a.ties,
-        winPct: a.games ? ((a.wins + a.ties * 0.5) / a.games) * 100 : 0,
-        pfPerGame: a.games ? a.pf / a.games : 0,
-        paPerGame: a.games ? a.pa / a.games : 0,
-        atsPct: pct(a.atsCovers, a.atsDecided),
-        overPct: pct(a.overs, a.ouDecided),
-      };
-    })
-    .filter((t) => t.games > 0);
-}
-
-export interface Bucket {
-  label: string;
-  games: number;
-  value: number | null;
-}
-
-export function pointsDistribution(games: GameRow[]): Bucket[] {
-  const edges = [0, 20, 30, 40, 50, 60, 70];
-  const buckets = edges.map((lo, i) => ({
-    label: i === edges.length - 1 ? `${lo}+` : `${lo}–${edges[i + 1] - 1}`,
-    games: 0,
-    value: null,
+  return buckets.map((b, i) => ({
+    grid: i + 1,
+    avgFinish: avg(b.finSum, b.finN),
+    winPct: pct(b.wins, b.n),
+    entries: b.n,
   }));
-  for (const g of games) {
-    const total = g[G.scoreHome] + g[G.scoreAway];
-    let i = edges.findIndex((lo, j) => j === edges.length - 1 || (total >= lo && total < edges[j + 1]));
-    if (i < 0) i = edges.length - 1;
-    buckets[i].games++;
-  }
-  return buckets;
 }
 
-/** Avg total points + over rate by temperature bucket (outdoor games with temp data). */
-export function weatherImpact(games: GameRow[]): { label: string; avgPoints: number | null; overPct: number | null; games: number }[] {
-  const defs = [
-    { label: "Below 0°C", test: (t: number) => t < 0 },
-    { label: "0–9°C", test: (t: number) => t >= 0 && t < 10 },
-    { label: "10–20°C", test: (t: number) => t >= 10 && t <= 20 },
-    { label: "Above 20°C", test: (t: number) => t > 20 },
-    { label: "Indoor", test: null as null | ((t: number) => boolean) },
+export interface StandingRow {
+  idx: number;
+  name: string;
+  sub: string; // nationality (drivers) / nationality (constructors)
+  entries: number;
+  wins: number;
+  podiums: number;
+  poles: number;
+  points: number;
+  pointsPerEntry: number;
+  avgFinish: number | null;
+  dnfPct: number | null;
+  lapsLed: number;
+}
+
+export function standings(rows: ResultRow[], data: Dataset, by: "driver" | "constructor"): StandingRow[] {
+  const key = by === "driver" ? R.driver : R.constructor;
+  const acc = new Map<number, { n: number; wins: number; pod: number; poles: number; pts: number; finSum: number; finN: number; dnf: number; led: number }>();
+  for (const r of rows) {
+    const id = r[key];
+    let a = acc.get(id);
+    if (!a) {
+      a = { n: 0, wins: 0, pod: 0, poles: 0, pts: 0, finSum: 0, finN: 0, dnf: 0, led: 0 };
+      acc.set(id, a);
+    }
+    a.n++;
+    const pos = r[R.pos];
+    if (pos === 1) a.wins++;
+    if (pos !== null && pos <= 3) a.pod++;
+    const q = r[R.quali];
+    if (q === 1 || (q === null && r[R.grid] === 1)) a.poles++;
+    a.pts += r[R.points];
+    if (pos !== null) {
+      a.finSum += pos;
+      a.finN++;
+    }
+    if (r[R.status] === 1 || r[R.status] === 2) a.dnf++;
+    a.led += r[R.lapsLed];
+  }
+  return [...acc.entries()].map(([idx, a]) => ({
+    idx,
+    name: by === "driver" ? data.drivers[idx].name : data.constructors[idx].name,
+    sub: by === "driver" ? data.drivers[idx].nationality : data.constructors[idx].nationality,
+    entries: a.n,
+    wins: a.wins,
+    podiums: a.pod,
+    poles: a.poles,
+    points: Math.round(a.pts * 100) / 100,
+    pointsPerEntry: a.n ? a.pts / a.n : 0,
+    avgFinish: avg(a.finSum, a.finN),
+    dnfPct: pct(a.dnf, a.n),
+    lapsLed: a.led,
+  }));
+}
+
+/** Win rate + entries per circuit country — where races are won/lost. */
+export function finishDistribution(rows: ResultRow[]): { label: string; entries: number }[] {
+  const edges = [
+    { label: "P1", test: (p: number) => p === 1 },
+    { label: "P2–P3", test: (p: number) => p >= 2 && p <= 3 },
+    { label: "P4–P6", test: (p: number) => p >= 4 && p <= 6 },
+    { label: "P7–P10", test: (p: number) => p >= 7 && p <= 10 },
+    { label: "P11+", test: (p: number) => p >= 11 },
   ];
-  return defs.map((d) => {
-    const subset = games.filter((g) => {
-      if (d.test === null) return g[G.weather] === 1;
-      const t = g[G.temp];
-      return g[G.weather] !== 1 && t !== null && d.test(t);
-    });
-    const k = computeKpis(subset, null);
-    return { label: d.label, avgPoints: k.avgTotalPoints, overPct: k.overPct, games: subset.length };
-  });
+  const out = edges.map((e) => ({ label: e.label, entries: 0 }));
+  let dnf = 0;
+  for (const r of rows) {
+    const p = r[R.pos];
+    if (p === null) {
+      dnf++;
+      continue;
+    }
+    const i = edges.findIndex((e) => e.test(p));
+    if (i >= 0) out[i].entries++;
+  }
+  out.push({ label: "DNF/NC", entries: dnf });
+  return out;
 }

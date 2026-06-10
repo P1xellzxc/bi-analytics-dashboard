@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NFL Analytics | Scores, Spreads & Totals",
+  title: "F1 Analytics | Results, Reliability & Pit Stops",
   description:
-    "Interactive NFL analytics dashboard: scoring trends, home-field advantage, against-the-spread performance, over/under hit rates and weather impact, 1966 to present.",
+    "Interactive Formula 1 analytics dashboard: wins, podiums, reliability, qualifying-to-race performance and pit stop times, 1950 to present.",
 };
 
 export default function RootLayout({

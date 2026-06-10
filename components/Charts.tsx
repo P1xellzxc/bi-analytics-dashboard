@@ -9,13 +9,12 @@ import {
   Legend,
   Line,
   LineChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { Bucket, SeasonTrendPoint } from "@/lib/analytics";
+import { SeasonPoint } from "@/lib/analytics";
 import { CHART_COLORS as C, ChartCard, tooltipStyle } from "./ChartCard";
 
 const fmt1 = (v: number) => v.toFixed(1);
@@ -28,15 +27,17 @@ const axisProps = {
   axisLine: { stroke: C.grid },
 } as const;
 
-export function ScoringTrendChart({ data }: { data: SeasonTrendPoint[] }) {
+const legendText = (label: string) => <span style={{ color: "#97999b", fontSize: 12 }}>{label}</span>;
+
+export function PointsBySeasonChart({ data, entityName }: { data: SeasonPoint[]; entityName: string | null }) {
   return (
     <ChartCard
-      title="Scoring Trend"
-      sub="Average combined points per game by season"
-      info="Shows whether the league is becoming more or less offense-friendly over time. Rising lines usually follow rule changes that help offenses. Useful for putting any single season or team in context, and for judging whether over/under lines should trend up or down."
+      title="Points by Season"
+      sub={entityName ? `Championship points scored by ${entityName} each season` : "Total championship points awarded each season (all filtered entries)"}
+      info="Tracks scoring across seasons. With a driver or constructor selected this is their career arc — peaks are title campaigns, cliffs are car or team changes. Note that scoring systems changed over the years (10-6-4-3-2-1 became 25-18-15… in 2010), so compare shapes within an era, not raw points across eras."
     >
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
+        <AreaChart data={data} margin={{ top: 5, right: 5, bottom: 0, left: -15 }}>
           <defs>
             <linearGradient id="ptsFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={C.primary} stopOpacity={0.35} />
@@ -45,84 +46,104 @@ export function ScoringTrendChart({ data }: { data: SeasonTrendPoint[] }) {
           </defs>
           <CartesianGrid stroke={C.grid} vertical={false} />
           <XAxis dataKey="season" {...axisProps} minTickGap={30} />
-          <YAxis {...axisProps} domain={["auto", "auto"]} />
+          <YAxis {...axisProps} domain={[0, "auto"]} />
           <Tooltip
             contentStyle={tooltipStyle}
-            formatter={(v) => [fmt1(Number(v)), "Avg points"]}
+            formatter={(v, name) => (name === "points" ? [Number(v).toLocaleString(), "Points"] : [v as number, "Wins"])}
             labelFormatter={(l) => `Season ${l}`}
           />
-          <Area type="monotone" dataKey="avgPoints" stroke={C.primary} strokeWidth={2} fill="url(#ptsFill)" />
+          <Area type="monotone" dataKey="points" stroke={C.primary} strokeWidth={2} fill="url(#ptsFill)" />
         </AreaChart>
       </ResponsiveContainer>
     </ChartCard>
   );
 }
 
-export function HomeAdvantageChart({ data }: { data: SeasonTrendPoint[] }) {
+export function ReliabilityChart({ data }: { data: SeasonPoint[] }) {
   return (
     <ChartCard
-      title="Home-Field Advantage"
-      sub="Home win % by season (neutral-site games excluded, ties count half)"
-      info="Measures how much playing at home is worth. Anything above the 50% dashed line means home teams win more than they lose. Watch for the long-term decline — and the dip in 2020 when stadiums were empty — when deciding how much weight to give the home team in a prediction or a bet."
+      title="Reliability & Attrition"
+      sub="Share of entries not finishing, by season — mechanical failures vs on-track incidents"
+      info="The engineering KPI. Mechanical DNFs falling from ~30% in the 20th century to under 5% today shows how bulletproof modern cars are. A team or era with a high mechanical line is losing points to fragility; a high incident line points to crash-prone drivers or chaotic seasons."
     >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
           <CartesianGrid stroke={C.grid} vertical={false} />
           <XAxis dataKey="season" {...axisProps} minTickGap={30} />
-          <YAxis {...axisProps} domain={[30, 80]} tickFormatter={fmtPctTick} />
+          <YAxis {...axisProps} domain={[0, "auto"]} tickFormatter={fmtPctTick} />
           <Tooltip
             contentStyle={tooltipStyle}
-            formatter={(v) => [`${fmt1(Number(v))}%`, "Home win rate"]}
+            formatter={(v, name) => [`${fmt1(Number(v))}%`, name === "mechPct" ? "Mechanical DNF" : "Incident DNF"]}
             labelFormatter={(l) => `Season ${l}`}
           />
-          <ReferenceLine y={50} stroke={C.reference} strokeDasharray="4 4" />
-          <Line type="monotone" dataKey="homeWinPct" stroke={C.secondary} strokeWidth={2} dot={false} />
+          <Legend formatter={(v) => legendText(v === "mechPct" ? "Mechanical DNF %" : "Incident DNF %")} />
+          <Line type="monotone" dataKey="mechPct" stroke={C.tertiary} strokeWidth={2} dot={false} connectNulls />
+          <Line type="monotone" dataKey="incidentPct" stroke={C.secondary} strokeWidth={2} dot={false} connectNulls />
         </LineChart>
       </ResponsiveContainer>
     </ChartCard>
   );
 }
 
-export function BettingTrendChart({ data }: { data: SeasonTrendPoint[] }) {
-  const withLines = data.filter((d) => d.favAtsPct !== null || d.overPct !== null);
+export function GridToFinishChart({ data }: { data: { grid: number; avgFinish: number | null; entries: number }[] }) {
   return (
     <ChartCard
-      title="Betting Market Efficiency"
-      sub="Favorite cover rate (ATS) and over hit rate by season — 50% means the market priced it perfectly"
-      info="Tests how accurate the Vegas lines are. If favorites covered the spread (green) or overs hit (orange) well above 50% for years, simply betting that side would have been profitable. Lines hugging 50% mean the market is efficient — there is no free money in blindly betting one side."
+      title="Grid Slot vs Average Finish"
+      sub="Average classified finishing position from each starting position"
+      info="Shows how much qualifying matters. The gap between a bar's height and its grid number is the average ground gained or lost in the race: bars below the diagonal mean drivers starting there typically move forward. With a driver selected, bars well below their grid slot are the signature of a strong racer."
     >
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={withLines} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
+        <BarChart data={data.filter((d) => d.entries > 0)} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
           <CartesianGrid stroke={C.grid} vertical={false} />
-          <XAxis dataKey="season" {...axisProps} minTickGap={30} />
-          <YAxis {...axisProps} domain={[30, 70]} tickFormatter={fmtPctTick} />
+          <XAxis dataKey="grid" {...axisProps} />
+          <YAxis {...axisProps} domain={[0, "auto"]} />
           <Tooltip
             contentStyle={tooltipStyle}
-            formatter={(v, name) => [`${fmt1(Number(v))}%`, name === "favAtsPct" ? "Favorite covers" : "Over hits"]}
+            cursor={{ fill: "#ffffff0a" }}
+            formatter={(v, name, item) => [
+              `Avg finish P${fmt1(Number(v))} (${item.payload.entries.toLocaleString()} starts)`,
+              `From grid P${item.payload.grid}`,
+            ]}
+            labelFormatter={() => ""}
+          />
+          <Bar dataKey="avgFinish" fill={C.secondary} radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+
+export function PitStopChart({ data }: { data: SeasonPoint[] }) {
+  const withPits = data.filter((d) => d.avgPitS !== null);
+  return (
+    <ChartCard
+      title="Pit Stop Performance"
+      sub="Average pit-lane time per stop by season, entry to exit (data available from 2011)"
+      info="The pit crew and strategy KPI. This is full pit-lane time — the speed-limited drive-through plus the 2–3s stationary stop — so circuit layouts and pit-lane speed limits move it as much as crew speed. A team trending above the field average is leaking race time on every stop. Red-flag stops over 60s are excluded."
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={withPits} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
+          <CartesianGrid stroke={C.grid} vertical={false} />
+          <XAxis dataKey="season" {...axisProps} minTickGap={20} />
+          <YAxis {...axisProps} domain={[0, "auto"]} tickFormatter={(v) => `${v}s`} />
+          <Tooltip
+            contentStyle={tooltipStyle}
+            formatter={(v) => [`${fmt1(Number(v))} s`, "Avg stationary time"]}
             labelFormatter={(l) => `Season ${l}`}
           />
-          <Legend
-            formatter={(v) => (
-              <span style={{ color: "#97999b", fontSize: 12 }}>
-                {v === "favAtsPct" ? "Favorite ATS cover %" : "Over hit %"}
-              </span>
-            )}
-          />
-          <ReferenceLine y={50} stroke={C.reference} strokeDasharray="4 4" />
-          <Line type="monotone" dataKey="favAtsPct" stroke={C.primary} strokeWidth={2} dot={false} connectNulls />
-          <Line type="monotone" dataKey="overPct" stroke={C.tertiary} strokeWidth={2} dot={false} connectNulls />
+          <Line type="monotone" dataKey="avgPitS" stroke={C.primary} strokeWidth={2} dot={false} connectNulls />
         </LineChart>
       </ResponsiveContainer>
     </ChartCard>
   );
 }
 
-export function PointsDistributionChart({ data }: { data: Bucket[] }) {
+export function FinishDistributionChart({ data }: { data: { label: string; entries: number }[] }) {
   return (
     <ChartCard
-      title="Total Points Distribution"
-      sub="Number of games by combined final score"
-      info="Shows what a 'normal' game total looks like. Most games land in the 30–50 point range, which is why over/under lines cluster there. Use it to judge how unusual a very low- or high-scoring game is under the current filters."
+      title="Finishing Position Distribution"
+      sub="Where the filtered entries ended up"
+      info="A quick shape of competitiveness. For a top driver the P1 and P2–P3 bars dominate; for a midfield team most results pile into P7–P10. A tall DNF bar relative to the rest is a reliability or crash problem worth investigating with the status filter."
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 5, right: 5, bottom: 0, left: -10 }}>
@@ -132,41 +153,9 @@ export function PointsDistributionChart({ data }: { data: Bucket[] }) {
           <Tooltip
             contentStyle={tooltipStyle}
             cursor={{ fill: "#ffffff0a" }}
-            formatter={(v) => [Number(v).toLocaleString(), "Games"]}
-            labelFormatter={(l) => `${l} points`}
+            formatter={(v) => [Number(v).toLocaleString(), "Entries"]}
           />
-          <Bar dataKey="games" fill={C.secondary} radius={[4, 4, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartCard>
-  );
-}
-
-export function WeatherImpactChart({
-  data,
-}: {
-  data: { label: string; avgPoints: number | null; games: number }[];
-}) {
-  return (
-    <ChartCard
-      title="Weather Impact on Scoring"
-      sub="Average combined points by game-time temperature (°C)"
-      info="Quantifies how conditions affect offense: freezing outdoor games score noticeably fewer points than warm or indoor ones. Handy for late-season outdoor matchups — a cold forecast is a reason to lean under the total."
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data.filter((d) => d.games > 0)} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
-          <CartesianGrid stroke={C.grid} vertical={false} />
-          <XAxis dataKey="label" {...axisProps} />
-          <YAxis {...axisProps} domain={[0, "auto"]} />
-          <Tooltip
-            contentStyle={tooltipStyle}
-            cursor={{ fill: "#ffffff0a" }}
-            formatter={(v, name, item) => [
-              `${fmt1(Number(v))} pts (${item.payload.games.toLocaleString()} games)`,
-              "Avg points",
-            ]}
-          />
-          <Bar dataKey="avgPoints" fill={C.tertiary} radius={[4, 4, 0, 0]} />
+          <Bar dataKey="entries" fill={C.tertiary} radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>

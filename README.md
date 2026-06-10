@@ -1,28 +1,38 @@
-# NFL Analytics Dashboard
+# F1 Analytics Dashboard
 
-Interactive sports analytics dashboard built with **Next.js**, **Tailwind CSS** and **Recharts**, covering every NFL game from 1966 to the present (~14,400 games) with Vegas point spreads, over/under lines and game-time weather.
+Interactive Formula 1 analytics dashboard built with **Next.js**, **Tailwind CSS** and **Recharts**, covering every World Championship race from 1950 to the present — 1,125 Grands Prix, 27,000+ race entries, with qualifying, reliability and pit stop data.
 
 ## KPIs
 
-The dashboard tracks the metrics standard in sports/betting analytics:
+The metrics F1 performance analysts actually track, in two modes:
+
+**League view (no driver/constructor selected)**
 
 | KPI | Why it matters |
 | --- | --- |
-| **Home win %** | Quantifies home-field advantage (ties count half, neutral sites excluded) |
-| **Favorite ATS cover %** | The core betting KPI — how often the favorite beats the spread (pushes excluded). Above 52.4% beats the standard −110 vig |
-| **Over hit %** | How often the combined score beats the over/under line |
-| **Favorite SU win %** | How often the favorite wins straight up |
-| **Avg points / game** | League scoring environment (combined points) |
-| **Avg victory margin** | Game competitiveness |
-| **Team win % / record** | Shown when a single team is selected |
+| **Unique winners** | Competitiveness of an era — few winners means dominance |
+| **DNF rate** (mechanical vs incident) | The engineering story: ~40% attrition in the 1950s, single digits today |
+| **Pole → win conversion** | How much qualifying decides the race vs overtaking |
+| **Avg pit-lane time** | Operations benchmark (2011+), red-flag outliers excluded |
+| **Finishers per race** | Attrition in one number |
 
-Charts: scoring trend by season, home-field advantage by season, betting market efficiency (ATS & over rates vs the 50% line), total-points distribution, weather impact on scoring, and a sortable franchise table (W-L-T, Win %, PF/G, PA/G, ATS %, Over %).
+**Entity view (driver or constructor selected)**
+
+| KPI | Why it matters |
+| --- | --- |
+| **Wins / win rate** | The headline metric — all-time greats sit above 20% |
+| **Podiums / podium rate + poles** | Consistency that wins championships, plus one-lap pace |
+| **Points per race** | Fairest cross-era comparison (calendars grew from 7 to 24 races) |
+| **Avg positions gained** | Race craft: grid slot vs classified finish |
+| **DNF rate** (mechanical vs incident) | Reliability vs crash-proneness |
+
+Charts: points by season (career arcs), reliability & attrition trend, grid slot → average finish, finishing-position distribution, pit stop performance by season, and a sortable championship table with a Drivers/Constructors toggle (entries, wins, podiums, poles, points, pts/race, avg finish, DNF %).
 
 ## Filters
 
-Season range · game type (regular / playoffs) · week (incl. playoff rounds) · conference · division · team · venue (home stadium / neutral site) · weather (outdoor, indoor/dome, rain, snow, fog).
+Season range (1950→present) · session (GP / sprint) · driver · constructor · driver nationality · circuit · circuit country · result status (finished / mechanical DNF / incident DNF / disqualified) · grid position bucket (pole, front row, top 10, P11+, pit-lane start).
 
-All filtering and aggregation happen client-side over a compact ~580 KB JSON payload, so every interaction is instant.
+All filtering and aggregation happen client-side over a compact ~1.3 MB JSON payload, so every interaction is instant.
 
 ## Design system — cinematic 60-30-10, Pantone
 
@@ -46,7 +56,7 @@ Pantone Warm Red C was considered for negatives but rejected (4.3:1, below AA); 
 
 ```bash
 npm install
-npm run build:data   # data/*.csv -> public/data/games.json
+npm run build:data   # data/*.csv -> public/data/f1.json
 npm run dev          # http://localhost:3000
 ```
 
@@ -54,32 +64,34 @@ npm run dev          # http://localhost:3000
 
 ### Data pipeline
 
-- `data/nfl_teams.csv` — franchise metadata (historical names are merged into the current franchise, e.g. Oakland Raiders → Las Vegas Raiders)
-- `data/spreadspoke_scores.csv` — game results, spreads, totals, weather
-- `scripts/build-data.mjs` — converts both CSVs into the compact tuple format in `public/data/games.json`
+`scripts/build-data.mjs` joins the 14 Ergast-schema CSVs in `data/` into one flat result-level table:
 
-To refresh with new seasons, replace the CSV in `data/` and rebuild.
+- `results.csv` + `sprint_results.csv` — the core rows (one per car per race)
+- `races.csv`, `drivers.csv`, `constructors.csv`, `circuits.csv`, `status.csv` — dimensions
+- `qualifying.csv` — qualifying classification (poles; from 1994)
+- `pit_stops.csv` — folded into per-entry stop count and average pit-lane time (from 2011; stops > 60 s excluded as red-flag outliers)
+- `lap_times.csv` (589k rows, 17 MB) — pre-aggregated at build time into laps-led per entry, so it never ships to the browser
+- DNF statuses are classified into finished / mechanical / incident / disqualified / other
+
+To refresh with new seasons, replace the CSVs in `data/` and rebuild.
 
 ## Deploying to a subdomain
 
 1. **Vercel**: import this repo — it auto-detects Next.js; `prebuild` generates the data payload during the build. No env vars needed.
-2. **DNS (Cloudflare)**: add a `CNAME` record for your subdomain (e.g. `nfl`) pointing to `cname.vercel-dns.com`, and add the same domain under the Vercel project's *Settings → Domains*. Keep the Cloudflare proxy on if you want Zero Trust in front.
+2. **DNS (Cloudflare)**: add a `CNAME` record for your subdomain (e.g. `f1`) pointing to `cname.vercel-dns.com`, and add the same domain under the Vercel project's *Settings → Domains*. Keep the Cloudflare proxy on if you want Zero Trust in front.
 3. **Access control (optional)**: add a Cloudflare Zero Trust Access application for the subdomain to gate the dashboard behind email login.
 
 ## Notes on the data
 
-- Spread coverage starts in the late 1960s and over/under lines in the late 1970s; rates show "—" where no line exists.
-- Weather is missing for ~10% of games; the weather filter's "Unknown" bucket holds those.
-- ATS pushes and over/under pushes are excluded from cover/over rates (industry convention).
+- Qualifying data begins in 1994; poles for earlier seasons fall back to grid P1.
+- Pit stop data begins in 2011 and measures pit-lane time (entry to exit), not stationary time.
+- Laps-led and pit metrics cover Grands Prix only (not sprints).
+- The 1950–1960 Indianapolis 500 races are part of the historical World Championship and are included.
+- Points follow the scoring system of each season — use Pts/Race within an era for fair comparisons.
 
 ## Data source & attribution
 
-The data comes from the Kaggle dataset **[NFL scores and betting data](https://www.kaggle.com/datasets/tobycrabtree/nfl-scores-and-betting-data)** by Toby Crabtree (spreadspoke) — game results since 1966 with betting odds since the late 1970s, compiled from public sources (ESPN, NFL.com, Pro Football Reference) and updated during the season.
-
-- `data/spreadspoke_scores.csv` — scores, spreads, over/under lines, stadium and weather
-- `data/nfl_teams.csv` — franchise names, IDs, conferences and divisions
-
-The CSVs remain subject to the dataset's license and terms as published on Kaggle. This project is not affiliated with or endorsed by the NFL.
+The data comes from the Kaggle dataset **[Formula 1 World Championship (1950–2024)](https://www.kaggle.com/datasets/rohanrao/formula-1-world-championship-1950-2020)** by Rohan Rao (vopani), itself sourced from the **[Ergast Developer API](http://ergast.com/mrd/)**. The CSVs remain subject to the dataset's license and terms as published on Kaggle. This project is unofficial and is not associated in any way with the Formula 1 companies. F1 and related marks are trademarks of Formula One Licensing B.V.
 
 ## License
 
