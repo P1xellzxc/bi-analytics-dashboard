@@ -18,8 +18,8 @@ export type GameRow = [
   number | null, // 7 spread (negative, from favorite's perspective)
   number | null, // 8 over/under line
   number, // 9 neutral site (0/1)
-  number | null, // 10 temperature F
-  number | null, // 11 wind mph
+  number | null, // 10 temperature °C
+  number | null, // 11 wind km/h
   number, // 12 weather category
 ];
 

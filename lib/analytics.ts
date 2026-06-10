@@ -268,10 +268,10 @@ export function pointsDistribution(games: GameRow[]): Bucket[] {
 /** Avg total points + over rate by temperature bucket (outdoor games with temp data). */
 export function weatherImpact(games: GameRow[]): { label: string; avgPoints: number | null; overPct: number | null; games: number }[] {
   const defs = [
-    { label: "Below 32°F", test: (t: number) => t < 32 },
-    { label: "32–49°F", test: (t: number) => t >= 32 && t < 50 },
-    { label: "50–69°F", test: (t: number) => t >= 50 && t < 70 },
-    { label: "70°F+", test: (t: number) => t >= 70 },
+    { label: "Below 0°C", test: (t: number) => t < 0 },
+    { label: "0–9°C", test: (t: number) => t >= 0 && t < 10 },
+    { label: "10–20°C", test: (t: number) => t >= 10 && t <= 20 },
+    { label: "Above 20°C", test: (t: number) => t > 20 },
     { label: "Indoor", test: null as null | ((t: number) => boolean) },
   ];
   return defs.map((d) => {

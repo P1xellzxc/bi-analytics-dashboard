@@ -87,6 +87,9 @@ function weatherCategory(detail, temp) {
 }
 
 const num = (s) => (s === "" || s === undefined ? null : Number(s));
+// Source data is imperial; the dashboard is metric.
+const fToC = (f) => (f === null ? null : Math.round(((f - 32) * 5) / 9));
+const mphToKmh = (mph) => (mph === null ? null : Math.round(mph * 1.609344));
 
 const gamesRaw = parseCsv(readFileSync(join(root, "data/spreadspoke_scores.csv"), "utf8"));
 const games = [];
@@ -106,8 +109,8 @@ for (const g of gamesRaw) {
     num(g.spread_favorite), // 7 spread (negative = favorite lays points)
     num(g.over_under_line), // 8 over/under line
     g.stadium_neutral === "TRUE" ? 1 : 0, // 9 neutral site
-    temp, // 10 temperature F
-    num(g.weather_wind_mph), // 11 wind mph
+    fToC(temp), // 10 temperature °C
+    mphToKmh(num(g.weather_wind_mph)), // 11 wind km/h
     weatherCategory(g.weather_detail ?? "", temp), // 12 weather category
   ]);
 }

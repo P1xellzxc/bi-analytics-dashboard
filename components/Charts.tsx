@@ -150,7 +150,7 @@ export function WeatherImpactChart({
   return (
     <ChartCard
       title="Weather Impact on Scoring"
-      sub="Average combined points by game-time temperature"
+      sub="Average combined points by game-time temperature (°C)"
       info="Quantifies how conditions affect offense: freezing outdoor games score noticeably fewer points than warm or indoor ones. Handy for late-season outdoor matchups — a cold forecast is a reason to lean under the total."
     >
       <ResponsiveContainer width="100%" height="100%">
