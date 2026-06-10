@@ -1,47 +1,70 @@
 @import "tailwindcss";
 
 /*
-  Cinematic 60-30-10 palette (Pantone), WCAG AA verified on dark surfaces:
-  60% dominant  — base    Pantone Black 6 C   #101820 (page background)
-  30% secondary — surface Pantone 433 C       #1D252D (cards, panels, table)
-  10% accent    — accent  Pantone 3395 C      #00C389 (KPIs, primary series, focus)
-  Support:        edge    Pantone 432 C       #333F48 (borders, grid lines)
-                  ink     Pantone Cool Gray 1 C #D9D9D6 (primary text, 11.0:1 on surface)
-                  muted   Pantone Cool Gray 7 C #97999B (secondary text, 5.4:1 on surface)
-                  neg     Pantone 178 C       #FF585D (negative values, 5.0:1)
-                  info    Pantone 279 C       #418FDE (secondary chart series, 4.6:1)
-                  warn    Pantone 1235 C      #FFB81C (tertiary chart series, 9.0:1)
+  Cinematic 60-30-10 palette (Pantone), WCAG AA verified per theme.
+
+  Dark (default):
+    60% base    Pantone Black 6 C       #101820
+    30% surface Pantone 433 C           #1D252D
+    10% accent  Pantone 3395 C          #00C389 (6.8:1 on surface)
+    ink Cool Gray 1 C #D9D9D6 (11.0:1) · muted Cool Gray 7 C #97999B (5.4:1)
+    neg 178 C #FF585D (5.0:1) · info 279 C #418FDE (4.6:1) · warn 1235 C #FFB81C (9.0:1)
+    edge 432 C #333F48
+
+  Light:
+    60% base    Cool Gray 1 C tint      #EFEFED
+    30% surface White                   #FFFFFF
+    10% accent  Pantone 341 C           #007A53 (5.4:1 on white)
+    ink Black 6 C #101820 (17.9:1) · muted Cool Gray 10 C #63666A (5.8:1)
+    neg 1797 C #CB333B (5.2:1) · info 2935 C #0057B8 (6.9:1) · warn 1255 C #AD841F (3.4:1, charts only)
+    edge Cool Gray 4 C #BBBCBC
 */
-@theme {
-  --color-base: #101820;
-  --color-surface: #1d252d;
-  --color-edge: #333f48;
-  --color-ink: #d9d9d6;
-  --color-ink-muted: #97999b;
-  --color-accent: #00c389;
-  --color-neg: #ff585d;
-  --color-info: #418fde;
-  --color-warn: #ffb81c;
+:root {
+  --base: #101820;
+  --surface: #1d252d;
+  --edge: #333f48;
+  --ink: #d9d9d6;
+  --ink-muted: #97999b;
+  --accent: #00c389;
+  --neg: #ff585d;
+  --info: #418fde;
+  --warn: #ffb81c;
 }
 
-:root {
-  --background: #101820;
-  --foreground: #d9d9d6;
+html.light {
+  --base: #efefed;
+  --surface: #ffffff;
+  --edge: #bbbcbc;
+  --ink: #101820;
+  --ink-muted: #63666a;
+  --accent: #007a53;
+  --neg: #cb333b;
+  --info: #0057b8;
+  --warn: #ad841f;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-base: var(--base);
+  --color-surface: var(--surface);
+  --color-edge: var(--edge);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-accent: var(--accent);
+  --color-neg: var(--neg);
+  --color-info: var(--info);
+  --color-warn: var(--warn);
+  --color-background: var(--base);
+  --color-foreground: var(--ink);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--base);
+  color: var(--ink);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
 ::selection {
-  background: #00c38944;
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
 }

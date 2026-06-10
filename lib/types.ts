@@ -36,6 +36,7 @@ export type ResultRow = [
   number | null, // 11 avg pit stop stationary ms (2011+ only)
   number, // 12 set fastest lap (0/1)
   number, // 13 sprint race (0/1)
+  number | null, // 14 teammate qualifying gap ms (+ = slower than best teammate; from 1994)
 ];
 
 export const R = {
@@ -53,6 +54,7 @@ export const R = {
   pitAvgMs: 11,
   fastestLap: 12,
   sprint: 13,
+  tmGap: 14,
 } as const;
 
 export const RACE = { year: 0, round: 1, circuit: 2, name: 3 } as const;

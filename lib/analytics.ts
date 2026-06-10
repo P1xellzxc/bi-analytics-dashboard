@@ -53,6 +53,8 @@ export interface Kpis {
   avgPitMs: number | null;
   lapsLed: number;
   fastestLaps: number;
+  pointsPerEntryExclMech: number | null; // PPR excluding mechanical-DNF entries
+  avgTeammateGapMs: number | null; // mean quali gap to best teammate (capped at 3s outliers)
   poleWinConversion: number | null; // % of races won from pole (league view)
   avgFinishersPerRace: number | null;
   uniqueWinners: number;
@@ -77,6 +79,8 @@ export function computeKpis(rows: ResultRow[]): Kpis {
   let fastestLaps = 0;
   let poleWins = 0;
   let finished = 0;
+  let tmGapSum = 0;
+  let tmGapN = 0;
   const raceIds = new Set<number>();
   const winners = new Set<number>();
 
@@ -115,6 +119,12 @@ export function computeKpis(rows: ResultRow[]): Kpis {
     }
     lapsLed += r[R.lapsLed];
     fastestLaps += r[R.fastestLap];
+    const gap = r[R.tmGap];
+    // Gaps beyond ±3s are wet sessions, damage or out-laps, not pace.
+    if (gap !== null && Math.abs(gap) <= 3000) {
+      tmGapSum += gap;
+      tmGapN++;
+    }
   }
 
   const n = rows.length;
@@ -137,6 +147,8 @@ export function computeKpis(rows: ResultRow[]): Kpis {
     avgPitMs: avg(pitMsSum, pitN),
     lapsLed,
     fastestLaps,
+    pointsPerEntryExclMech: avg(points, n - mech),
+    avgTeammateGapMs: avg(tmGapSum, tmGapN),
     poleWinConversion: pct(poleWins, wins),
     avgFinishersPerRace: avg(finished, raceIds.size),
     uniqueWinners: winners.size,

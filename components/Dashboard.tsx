@@ -20,6 +20,7 @@ import {
   ReliabilityChart,
 } from "./Charts";
 import { StandingsTable } from "./StandingsTable";
+import { ThemeToggle } from "./theme";
 
 export function Dashboard() {
   const [data, setData] = useState<Dataset | null>(null);
@@ -84,8 +85,8 @@ export function Dashboard() {
   const entityMode = entityName !== null;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 flex flex-col gap-4">
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
+    <div className="w-full px-3 sm:px-4 xl:px-6 2xl:px-8 py-4 sm:py-6 flex flex-col gap-3 sm:gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-xl font-semibold text-ink">F1 Analytics</h1>
           <p className="text-sm text-ink-muted">
@@ -93,13 +94,16 @@ export function Dashboard() {
             {data.races.length.toLocaleString()} races
           </p>
         </div>
-        {entityName && (
-          <span className="text-sm text-accent font-medium">
-            {entityName}
-            {filters.driver !== null && ` · ${data.drivers[filters.driver].nationality}`}
-            {filters.driver === null && filters.team !== null && ` · ${data.constructors[filters.team].nationality}`}
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {entityName && (
+            <span className="text-sm text-accent font-medium">
+              {entityName}
+              {filters.driver !== null && ` · ${data.drivers[filters.driver].nationality}`}
+              {filters.driver === null && filters.team !== null && ` · ${data.constructors[filters.team].nationality}`}
+            </span>
+          )}
+          <ThemeToggle />
+        </div>
       </header>
 
       <FilterBar
@@ -111,7 +115,7 @@ export function Dashboard() {
         totalCount={data.results.length}
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 ${entityMode ? "xl:grid-cols-7" : "xl:grid-cols-6"}`}>
         {entityMode ? (
           <>
             <KpiCard
@@ -136,8 +140,18 @@ export function Dashboard() {
             <KpiCard
               label="Points / race"
               value={fmtNum(kpis.pointsPerEntry, 2)}
-              sub={`${kpis.points.toLocaleString()} total`}
-              info="Average championship points per entry — the fairest cross-era comparison since calendars and scoring systems changed over time."
+              sub={`${fmtNum(kpis.pointsPerEntryExclMech, 2)} excl. mech DNF · ${kpis.points.toLocaleString()} total`}
+              info="Average championship points per entry — the fairest cross-era comparison since calendars and scoring systems changed over time. The adjusted figure excludes entries lost to mechanical failure, isolating performance from car fragility."
+            />
+            <KpiCard
+              label="Teammate quali delta"
+              value={
+                kpis.avgTeammateGapMs === null
+                  ? "—"
+                  : `${kpis.avgTeammateGapMs <= 0 ? "" : "+"}${(kpis.avgTeammateGapMs / 1000).toFixed(3)}s`
+              }
+              sub="Avg gap to teammate, 1994+"
+              info="Average qualifying gap to the best teammate in the deepest session both ran (Q3 > Q2 > Q1). Identical machinery makes this the purest raw-pace metric: negative means faster than the teammate. Gaps over 3s (wet sessions, damage) are excluded."
             />
             <KpiCard
               label="Avg positions gained"

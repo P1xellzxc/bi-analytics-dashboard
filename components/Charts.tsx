@@ -15,21 +15,25 @@ import {
   YAxis,
 } from "recharts";
 import { SeasonPoint } from "@/lib/analytics";
-import { CHART_COLORS as C, ChartCard, tooltipStyle } from "./ChartCard";
+import { ChartCard } from "./ChartCard";
+import { useChartColors } from "./theme";
 
 const fmt1 = (v: number) => v.toFixed(1);
 const fmtPctTick = (v: number) => `${v}%`;
 
-const axisProps = {
-  stroke: C.axis,
-  fontSize: 11,
-  tickLine: false,
-  axisLine: { stroke: C.grid },
-} as const;
-
-const legendText = (label: string) => <span style={{ color: "#97999b", fontSize: 12 }}>{label}</span>;
+function useAxisProps() {
+  const c = useChartColors();
+  return {
+    stroke: c.axis,
+    fontSize: 11,
+    tickLine: false,
+    axisLine: { stroke: c.grid },
+  } as const;
+}
 
 export function PointsBySeasonChart({ data, entityName }: { data: SeasonPoint[]; entityName: string | null }) {
+  const c = useChartColors();
+  const axisProps = useAxisProps();
   return (
     <ChartCard
       title="Points by Season"
@@ -40,19 +44,19 @@ export function PointsBySeasonChart({ data, entityName }: { data: SeasonPoint[];
         <AreaChart data={data} margin={{ top: 5, right: 5, bottom: 0, left: -15 }}>
           <defs>
             <linearGradient id="ptsFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={C.primary} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={C.primary} stopOpacity={0} />
+              <stop offset="0%" stopColor={c.primary} stopOpacity={0.35} />
+              <stop offset="100%" stopColor={c.primary} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke={C.grid} vertical={false} />
+          <CartesianGrid stroke={c.grid} vertical={false} />
           <XAxis dataKey="season" {...axisProps} minTickGap={30} />
           <YAxis {...axisProps} domain={[0, "auto"]} />
           <Tooltip
-            contentStyle={tooltipStyle}
-            formatter={(v, name) => (name === "points" ? [Number(v).toLocaleString(), "Points"] : [v as number, "Wins"])}
+            contentStyle={c.tooltip}
+            formatter={(v) => [Number(v).toLocaleString(), "Points"]}
             labelFormatter={(l) => `Season ${l}`}
           />
-          <Area type="monotone" dataKey="points" stroke={C.primary} strokeWidth={2} fill="url(#ptsFill)" />
+          <Area type="monotone" dataKey="points" stroke={c.primary} strokeWidth={2} fill="url(#ptsFill)" />
         </AreaChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -60,6 +64,8 @@ export function PointsBySeasonChart({ data, entityName }: { data: SeasonPoint[];
 }
 
 export function ReliabilityChart({ data }: { data: SeasonPoint[] }) {
+  const c = useChartColors();
+  const axisProps = useAxisProps();
   return (
     <ChartCard
       title="Reliability & Attrition"
@@ -68,17 +74,21 @@ export function ReliabilityChart({ data }: { data: SeasonPoint[] }) {
     >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
-          <CartesianGrid stroke={C.grid} vertical={false} />
+          <CartesianGrid stroke={c.grid} vertical={false} />
           <XAxis dataKey="season" {...axisProps} minTickGap={30} />
           <YAxis {...axisProps} domain={[0, "auto"]} tickFormatter={fmtPctTick} />
           <Tooltip
-            contentStyle={tooltipStyle}
+            contentStyle={c.tooltip}
             formatter={(v, name) => [`${fmt1(Number(v))}%`, name === "mechPct" ? "Mechanical DNF" : "Incident DNF"]}
             labelFormatter={(l) => `Season ${l}`}
           />
-          <Legend formatter={(v) => legendText(v === "mechPct" ? "Mechanical DNF %" : "Incident DNF %")} />
-          <Line type="monotone" dataKey="mechPct" stroke={C.tertiary} strokeWidth={2} dot={false} connectNulls />
-          <Line type="monotone" dataKey="incidentPct" stroke={C.secondary} strokeWidth={2} dot={false} connectNulls />
+          <Legend
+            formatter={(v) => (
+              <span style={{ color: c.axis, fontSize: 12 }}>{v === "mechPct" ? "Mechanical DNF %" : "Incident DNF %"}</span>
+            )}
+          />
+          <Line type="monotone" dataKey="mechPct" stroke={c.tertiary} strokeWidth={2} dot={false} connectNulls />
+          <Line type="monotone" dataKey="incidentPct" stroke={c.secondary} strokeWidth={2} dot={false} connectNulls />
         </LineChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -86,6 +96,8 @@ export function ReliabilityChart({ data }: { data: SeasonPoint[] }) {
 }
 
 export function GridToFinishChart({ data }: { data: { grid: number; avgFinish: number | null; entries: number }[] }) {
+  const c = useChartColors();
+  const axisProps = useAxisProps();
   return (
     <ChartCard
       title="Grid Slot vs Average Finish"
@@ -94,19 +106,19 @@ export function GridToFinishChart({ data }: { data: { grid: number; avgFinish: n
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data.filter((d) => d.entries > 0)} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
-          <CartesianGrid stroke={C.grid} vertical={false} />
+          <CartesianGrid stroke={c.grid} vertical={false} />
           <XAxis dataKey="grid" {...axisProps} />
           <YAxis {...axisProps} domain={[0, "auto"]} />
           <Tooltip
-            contentStyle={tooltipStyle}
-            cursor={{ fill: "#ffffff0a" }}
+            contentStyle={c.tooltip}
+            cursor={{ fill: c.cursorFill }}
             formatter={(v, name, item) => [
               `Avg finish P${fmt1(Number(v))} (${item.payload.entries.toLocaleString()} starts)`,
               `From grid P${item.payload.grid}`,
             ]}
             labelFormatter={() => ""}
           />
-          <Bar dataKey="avgFinish" fill={C.secondary} radius={[4, 4, 0, 0]} />
+          <Bar dataKey="avgFinish" fill={c.secondary} radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -114,6 +126,8 @@ export function GridToFinishChart({ data }: { data: { grid: number; avgFinish: n
 }
 
 export function PitStopChart({ data }: { data: SeasonPoint[] }) {
+  const c = useChartColors();
+  const axisProps = useAxisProps();
   const withPits = data.filter((d) => d.avgPitS !== null);
   return (
     <ChartCard
@@ -123,15 +137,15 @@ export function PitStopChart({ data }: { data: SeasonPoint[] }) {
     >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={withPits} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
-          <CartesianGrid stroke={C.grid} vertical={false} />
+          <CartesianGrid stroke={c.grid} vertical={false} />
           <XAxis dataKey="season" {...axisProps} minTickGap={20} />
           <YAxis {...axisProps} domain={[0, "auto"]} tickFormatter={(v) => `${v}s`} />
           <Tooltip
-            contentStyle={tooltipStyle}
-            formatter={(v) => [`${fmt1(Number(v))} s`, "Avg stationary time"]}
+            contentStyle={c.tooltip}
+            formatter={(v) => [`${fmt1(Number(v))} s`, "Avg pit-lane time"]}
             labelFormatter={(l) => `Season ${l}`}
           />
-          <Line type="monotone" dataKey="avgPitS" stroke={C.primary} strokeWidth={2} dot={false} connectNulls />
+          <Line type="monotone" dataKey="avgPitS" stroke={c.primary} strokeWidth={2} dot={false} connectNulls />
         </LineChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -139,6 +153,8 @@ export function PitStopChart({ data }: { data: SeasonPoint[] }) {
 }
 
 export function FinishDistributionChart({ data }: { data: { label: string; entries: number }[] }) {
+  const c = useChartColors();
+  const axisProps = useAxisProps();
   return (
     <ChartCard
       title="Finishing Position Distribution"
@@ -147,15 +163,15 @@ export function FinishDistributionChart({ data }: { data: { label: string; entri
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 5, right: 5, bottom: 0, left: -10 }}>
-          <CartesianGrid stroke={C.grid} vertical={false} />
+          <CartesianGrid stroke={c.grid} vertical={false} />
           <XAxis dataKey="label" {...axisProps} />
           <YAxis {...axisProps} />
           <Tooltip
-            contentStyle={tooltipStyle}
-            cursor={{ fill: "#ffffff0a" }}
+            contentStyle={c.tooltip}
+            cursor={{ fill: c.cursorFill }}
             formatter={(v) => [Number(v).toLocaleString(), "Entries"]}
           />
-          <Bar dataKey="entries" fill={C.tertiary} radius={[4, 4, 0, 0]} />
+          <Bar dataKey="entries" fill={c.tertiary} radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>

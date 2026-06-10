@@ -111,15 +111,49 @@ for (const p of parseCsv("pit_stops.csv")) {
   pits.set(k, cur);
 }
 
-// Qualifying classification position per (raceId, driverId).
+// Qualifying classification position per (raceId, driverId), and teammate
+// qualifying delta: gap in ms to the best teammate's time in the deepest
+// session both drivers set a time (Q3 > Q2 > Q1). Identical machinery makes
+// this the purest raw-pace metric.
+function lapMs(t) {
+  if (!t) return null;
+  const m = t.match(/^(\d+):(\d+(?:\.\d+)?)$/);
+  if (!m) return null;
+  return Math.round((Number(m[1]) * 60 + Number(m[2])) * 1000);
+}
+
 const quali = new Map();
+const qualiByRaceTeam = new Map(); // `${raceId}:${constructorId}` -> [{driverId, q1, q2, q3}]
 for (const q of parseCsv("qualifying.csv")) {
   quali.set(`${q.raceId}:${q.driverId}`, num(q.position));
+  const k = `${q.raceId}:${q.constructorId}`;
+  const arr = qualiByRaceTeam.get(k) ?? [];
+  arr.push({ driverId: q.driverId, q1: lapMs(q.q1), q2: lapMs(q.q2), q3: lapMs(q.q3) });
+  qualiByRaceTeam.set(k, arr);
+}
+
+const teammateGap = new Map(); // `${raceId}:${driverId}` -> ms (+ slower than best teammate)
+for (const [key, entries] of qualiByRaceTeam) {
+  if (entries.length < 2) continue;
+  const raceId = key.split(":")[0];
+  for (const me of entries) {
+    let best = null;
+    for (const session of ["q3", "q2", "q1"]) {
+      const mine = me[session];
+      if (mine === null) continue;
+      const rivals = entries.filter((e) => e !== me && e[session] !== null).map((e) => e[session]);
+      if (rivals.length === 0) continue;
+      best = mine - Math.min(...rivals);
+      break; // deepest common session wins
+    }
+    if (best !== null) teammateGap.set(`${raceId}:${me.driverId}`, best);
+  }
 }
 
 // ---- Result rows ----------------------------------------------------------
 // [raceIdx, driverIdx, constructorIdx, grid, posOrder, classifiedPos|null, points,
-//  statusClass, qualiPos|null, lapsLed, pitCount|null, pitAvgMs|null, fastestLap01, sprint01]
+//  statusClass, qualiPos|null, lapsLed, pitCount|null, pitAvgMs|null, fastestLap01, sprint01,
+//  teammateQualiGapMs|null]
 const rows = [];
 function addResults(file, isSprint) {
   for (const r of parseCsv(file)) {
@@ -144,6 +178,7 @@ function addResults(file, isSprint) {
       pit && pit.msN > 0 ? Math.round(pit.ms / pit.msN) : null,
       !isSprint && r.rank === "1" ? 1 : 0,
       isSprint ? 1 : 0,
+      !isSprint ? (teammateGap.get(k) ?? null) : null,
     ]);
   }
 }
