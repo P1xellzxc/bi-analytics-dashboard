@@ -170,6 +170,7 @@ export function EraDominanceChart({ data }: { data: { seasons: Record<string, nu
             contentStyle={c.tooltip}
             formatter={(v, name) => [`${Number(v).toFixed(1)}%`, name]}
             labelFormatter={(l) => `Season ${l}`}
+            itemSorter={(item) => -Number(item.value ?? 0)}
           />
           <Legend formatter={(v) => <span style={{ color: c.axis, fontSize: 11 }}>{v}</span>} />
           {data.names.map((name, k) => (

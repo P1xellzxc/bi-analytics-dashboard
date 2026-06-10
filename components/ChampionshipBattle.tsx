@@ -102,6 +102,7 @@ export function ChampionshipBattle({ data }: { data: Dataset }) {
               contentStyle={c.tooltip}
               labelFormatter={(l, payload) => `Round ${l} · ${payload?.[0]?.payload?.race ?? ""}`}
               formatter={(v, name) => [Number(v).toLocaleString(), name]}
+              itemSorter={(item) => -Number(item.value ?? 0)}
             />
             <Legend formatter={(v) => <span style={{ color: c.axis, fontSize: 11 }}>{v}</span>} />
             {series.map((s, k) => (
