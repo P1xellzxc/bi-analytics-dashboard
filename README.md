@@ -71,3 +71,16 @@ To refresh with new seasons, replace the CSV in `data/` and rebuild.
 - Spread coverage starts in the late 1960s and over/under lines in the late 1970s; rates show "—" where no line exists.
 - Weather is missing for ~10% of games; the weather filter's "Unknown" bucket holds those.
 - ATS pushes and over/under pushes are excluded from cover/over rates (industry convention).
+
+## Data source & attribution
+
+The data comes from the Kaggle dataset **[NFL scores and betting data](https://www.kaggle.com/datasets/tobycrabtree/nfl-scores-and-betting-data)** by Toby Crabtree (spreadspoke) — game results since 1966 with betting odds since the late 1970s, compiled from public sources (ESPN, NFL.com, Pro Football Reference) and updated during the season.
+
+- `data/spreadspoke_scores.csv` — scores, spreads, over/under lines, stadium and weather
+- `data/nfl_teams.csv` — franchise names, IDs, conferences and divisions
+
+The CSVs remain subject to the dataset's license and terms as published on Kaggle. This project is not affiliated with or endorsed by the NFL.
+
+## License
+
+The source code is released under the [MIT License](LICENSE). The license covers the code only — see the data attribution above for the dataset's terms.

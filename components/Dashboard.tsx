@@ -163,9 +163,18 @@ export function Dashboard() {
       </div>
 
       <footer className="text-xs text-ink-muted pt-2 pb-4">
-        Data: NFL game results &amp; Vegas lines (spreadspoke), seasons {seasons[0]}–{seasons[seasons.length - 1]}.
-        Spread and over/under coverage begins in the late 1970s; weather is unavailable for some games. ATS = against
-        the spread; pushes are excluded from cover and over rates.
+        Data:{" "}
+        <a
+          href="https://www.kaggle.com/datasets/tobycrabtree/nfl-scores-and-betting-data"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline decoration-edge underline-offset-2 hover:text-ink transition-colors"
+        >
+          NFL scores and betting data
+        </a>{" "}
+        (Kaggle, spreadspoke), seasons {seasons[0]}–{seasons[seasons.length - 1]}. Spread and over/under coverage
+        begins in the late 1970s; weather is unavailable for some games. ATS = against the spread; pushes are excluded
+        from cover and over rates. Not affiliated with the NFL.
       </footer>
     </div>
   );
